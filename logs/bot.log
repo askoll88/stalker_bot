@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Users\ivan\Desktop\VK-Siti-N\stalker_bot\main.py", line 5, in <module>
+    from vk_api.ui_sdk import open_app_vk
+ModuleNotFoundError: No module named 'vk_api.ui_sdk'

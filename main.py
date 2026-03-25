@@ -2,7 +2,6 @@
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
-from vk_api.ui_sdk import open_app_vk
 import random
 import sys
 import os
