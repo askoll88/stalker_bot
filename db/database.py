@@ -1,4 +1,4 @@
-"""Работа с базой данных PostgreSQL"""
+"""Database working with PostgreSQL"""
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from config import DB_CONFIG
@@ -12,14 +12,14 @@ class Database:
         self.init_items()
 
     def connect(self):
-        """Подключение к БД"""
+        """Connect to database"""
         self.conn = psycopg2.connect(**DB_CONFIG)
         self.conn.autocommit = True
 
     def init_tables(self):
-        """Создание таблиц"""
+        """Create tables"""
         with self.conn.cursor() as cur:
-            # Таблица игроков
+            # Players table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS players (
                     vk_id BIGINT PRIMARY KEY,
@@ -36,8 +36,8 @@ class Database:
                     last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-
-            # Таблица предметов
+            
+            # Items table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS items (
                     id VARCHAR(50) PRIMARY KEY,
@@ -50,8 +50,8 @@ class Database:
                     stats JSONB
                 )
             """)
-
-            # Таблица инвентаря игроков
+            
+            # Player inventory table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS player_inventory (
                     id SERIAL PRIMARY KEY,
@@ -64,51 +64,51 @@ class Database:
             """)
 
     def init_items(self):
-        """Добавление предметов в БД"""
+        """Add items to database"""
         items = [
-            # Медицина
-            ("medkit", "Аптечка", "Стандартная мед. аптечка. Восстанавливает 50 HP.", "🩹", "consumable", 50,
+            # Medicine
+            ("medkit", "Medkit", "Standard medkit. Restores 50 HP.", "🩹", "consumable", 50, 
              '{"health": 50}', None),
-            ("bandage", "Бинт", "Простой бинт. Восстанавливает 20 HP.", "🩹", "consumable", 25,
+            ("bandage", "Bandage", "Simple bandage. Restores 20 HP.", "🩹", "consumable", 25, 
              '{"health": 20}', None),
-            ("energy_drink", "Энергетик", "Снижает усталость на 30.", "⚡", "consumable", 30,
+            ("energy_drink", "Energy Drink", "Reduces fatigue by 30.", "⚡", "consumable", 30, 
              '{"fatigue": -30}', None),
-
-            # Еда
-            ("bread", "Хлеб", "Сытный хлеб. Снижает усталость на 20.", "🍞", "food", 20,
+            
+            # Food
+            ("bread", "Bread", "Satisfying bread. Reduces fatigue by 20.", "🍞", "food", 20, 
              '{"fatigue": -20}', None),
-            ("water", "Вода", "Бутылка воды.", "💧", "food", 10,
+            ("water", "Water", "Bottle of clean water.", "💧", "food", 10, 
              '{"fatigue": -10}', None),
-
-            # Оружие
-            ("pm", "Пистолет ПМ", "Пистолет Макарова. Компактный и надёжный.", "🔫", "weapon", 200,
+            
+            # Weapons
+            ("pm", "PM Pistol", "Makarov pistol. Compact and reliable.", "🔫", "weapon", 200, 
              None, '{"damage": 15, "fireRate": 5}'),
-            ("ak74", "АК-74", "Автомат Калашникова. Классика сталкера.", "🔫", "weapon", 500,
+            ("ak74", "AK-74", "Kalashnikov rifle. Classic.", "🔫", "weapon", 500, 
              None, '{"damage": 35, "fireRate": 10}'),
-            ("tos", "ТОС-34", "Огнемёт. Уничтожает всё живое.", "🔥", "weapon", 1200,
+            ("tos", "TOS-34", "Flamethrower. Destroys everything.", "🔥", "weapon", 1200, 
              None, '{"damage": 60, "fireRate": 3}'),
-
-            # Броня
-            ("armor_vest", "Бронежилет", "Стандартный бронежилет. Защита +30.", "🦺", "armor", 300,
+            
+            # Armor
+            ("armor_vest", "Armor Vest", "Standard armor. Defense +30.", "🦺", "armor", 300, 
              None, '{"defense": 30}'),
-            ("stalker_armor", "Комбинезон сталкера", "Спецкостюм сталкера. Защита +50.", "🥋", "armor", 800,
+            ("stalker_armor", "Stalker Suit", "Special suit. Defense +50.", "🥋", "armor", 800, 
              None, '{"defense": 50, "radiation": -10}'),
-
-            # Патроны
-            ("ammo_9x18", "Патроны 9x18", "Магазин для ПМ. 12 штук.", "📦", "ammo", 30,
+            
+            # Ammo
+            ("ammo_9x18", "Ammo 9x18", "Magazine for PM. 12 rounds.", "📦", "ammo", 30, 
              None, None),
-            ("ammo_5x45", "Патроны 5.45", "Магазин для АК-74. 30 штук.", "📦", "ammo", 60,
+            ("ammo_5x45", "Ammo 5.45", "Magazine for AK-74. 30 rounds.", "📦", "ammo", 60, 
              None, None),
-
-            # Артефакты
-            ("artifact_blood", "Кровь камня", "Артефакт «Кровь». Регенерация +5.", "💎", "artifact", 500,
+            
+            # Artifacts
+            ("artifact_blood", "Blood of Stone", "Artifact 'Blood'. Regen +5.", "💎", "artifact", 500, 
              None, '{"healthRegen": 5}'),
-            ("artifact_eye", "Око", "Артефакт «Око». Ночное зрение.", "👁️", "artifact", 400,
+            ("artifact_eye", "Eye", "Artifact 'Eye'. Night vision.", "👁️", "artifact", 400, 
              None, '{"vision": 10}'),
-            ("artifact_meat", "Мясо", "Съедобный артефакт.", "🫀", "artifact", 150,
+            ("artifact_meat", "Meat", "Edible artifact.", "🫀", "artifact", 150, 
              '{"fatigue": -40, "health": 10}', None),
         ]
-
+        
         for item in items:
             with self.conn.cursor() as cur:
                 cur.execute("""
@@ -118,13 +118,13 @@ class Database:
                 """, item)
 
     def get_player(self, vk_id: int):
-        """Получить игрока по VK ID"""
+        """Get player by VK ID"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM players WHERE vk_id = %s", (vk_id,))
             return cur.fetchone()
 
     def create_player(self, vk_id: int, name: str):
-        """Создать нового игрока"""
+        """Create new player"""
         from config import INITIAL_HEALTH, INITIAL_ATTACK, INITIAL_MONEY
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
@@ -135,7 +135,7 @@ class Database:
             return cur.fetchone()
 
     def update_player(self, vk_id: int, **kwargs):
-        """Обновить данные игрока"""
+        """Update player data"""
         if not kwargs:
             return
         set_clause = ", ".join([f"{key} = %s" for key in kwargs.keys()])
@@ -149,19 +149,19 @@ class Database:
             """, values)
 
     def player_exists(self, vk_id: int) -> bool:
-        """Проверить существование игрока"""
+        """Check if player exists"""
         with self.conn.cursor() as cur:
             cur.execute("SELECT 1 FROM players WHERE vk_id = %s", (vk_id,))
             return cur.fetchone() is not None
 
     def get_item(self, item_id: str):
-        """Получить предмет по ID"""
+        """Get item by ID"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM items WHERE id = %s", (item_id,))
             return cur.fetchone()
 
     def get_inventory(self, vk_id: int):
-        """Получить инвентарь игрока"""
+        """Get player inventory"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT pi.*, i.name, i.icon, i.type, i.effect, i.stats
@@ -173,43 +173,43 @@ class Database:
             return cur.fetchall()
 
     def add_item(self, vk_id: int, item_id: str, count: int = 1) -> bool:
-        """Добавить предмет в инвентарь"""
-        # Проверяем, есть ли уже такой предмет
+        """Add item to inventory"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Check if item already exists
             cur.execute("""
                 SELECT * FROM player_inventory 
                 WHERE vk_id = %s AND item_id = %s AND is_equipped = FALSE
             """, (vk_id, item_id))
             existing = cur.fetchone()
-
+            
             if existing:
-                # Увеличиваем количество
+                # Increase count
                 cur.execute("""
                     UPDATE player_inventory 
                     SET count = count + %s
                     WHERE id = %s
                 """, (count, existing['id']))
             else:
-                # Находим свободный слот
+                # Find free slot
                 cur.execute("""
                     SELECT COALESCE(MAX(slot_number), -1) + 1 as next_slot 
                     FROM player_inventory WHERE vk_id = %s
                 """, (vk_id,))
                 next_slot = cur.fetchone()['next_slot']
-
+                
                 if next_slot >= 16:
-                    return False  # Инвентарь полон
-
-                # Добавляем новый предмет
+                    return False  # Inventory full
+                
+                # Add new item
                 cur.execute("""
                     INSERT INTO player_inventory (vk_id, item_id, slot_number, count)
                     VALUES (%s, %s, %s, %s)
                 """, (vk_id, item_id, next_slot, count))
-
+            
             return True
 
     def remove_item(self, vk_id: int, item_id: str, count: int = 1) -> bool:
-        """Удалить предмет из инвентаря"""
+        """Remove item from inventory"""
         with self.conn.cursor() as cur:
             cur.execute("""
                 UPDATE player_inventory 
@@ -217,9 +217,9 @@ class Database:
                 WHERE vk_id = %s AND item_id = %s AND is_equipped = FALSE
                 AND count >= %s
             """, (count, vk_id, item_id, count))
-
+            
             if cur.rowcount > 0:
-                # Удаляем если 0
+                # Delete if 0
                 cur.execute("""
                     DELETE FROM player_inventory 
                     WHERE vk_id = %s AND item_id = %s AND count <= 0
