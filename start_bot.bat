@@ -38,8 +38,8 @@ echo.
 REM Create logs folder
 if not exist "logs" mkdir logs
 
-REM Run bot in new window with logs
-start "S.T.A.L.K.E.R. Bot - Log" /d "%~dp0" cmd /c "py main.py 2^>^&1 | tee logs\bot.log & pause"
+REM Run bot in new window with logs (window stays open after bot stops)
+start "S.T.A.L.K.E.R. Bot - Log" /d "%~dp0" cmd /k "py main.py > logs\bot.log 2>&1"
 
 echo [OK] Bot started in new window
 echo Logs saved to: logs\bot.log
