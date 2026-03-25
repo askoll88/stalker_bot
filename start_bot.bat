@@ -38,13 +38,13 @@ echo.
 REM Create logs folder
 if not exist "logs" mkdir logs
 
-REM Run bot in new window with logs
-start "S.T.A.L.K.E.R. Bot - Log" /d "%~dp0" cmd /k "echo Starting S.T.A.L.K.E.R. Bot... && py main.py > logs\bot.log 2>&1 && echo Bot stopped. Press any key to close... && pause"
-
-echo [OK] Bot started in new window
-echo Logs saved to: logs\bot.log
-echo.
-echo Run stop_bot.bat to stop the bot
+echo [INFO] Bot is running...
+echo [INFO] Press Ctrl+C to stop
 echo.
 
+REM Run bot in current window
+py main.py
+
+echo.
+echo [INFO] Bot stopped
 pause

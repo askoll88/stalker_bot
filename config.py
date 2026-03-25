@@ -1,22 +1,22 @@
-"""Конфигурация бота"""
+# Bot config
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Токен VK группы
+# VK group token
 VK_TOKEN = os.getenv("VK_TOKEN", "YOUR_VK_TOKEN_HERE")
 
-# ID группы VK
+# VK group ID
 GROUP_ID = int(os.getenv("GROUP_ID", "0"))
 
-# URL Mini App
+# Mini App URL
 MINI_APP_URL = "https://askoll88.github.io/stalker_bot/mini_app/"
 
 # VK Mini App ID
 VK_APP_ID = "54505998"
 
-# Настройки базы данных PostgreSQL
+# PostgreSQL config
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": int(os.getenv("DB_PORT", 5432)),
@@ -25,7 +25,7 @@ DB_CONFIG = {
     "password": os.getenv("DB_PASSWORD", "postgres")
 }
 
-# Настройки игры
+# Game settings
 INITIAL_HEALTH = 100
 INITIAL_ATTACK = 10
 INITIAL_FATIGUE = 0

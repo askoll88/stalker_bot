@@ -1,4 +1,4 @@
-"""Локации игры S.T.A.L.K.E.R."""
+"""Game locations S.T.A.L.K.E.R."""
 from dataclasses import dataclass
 from typing import Optional
 
@@ -14,23 +14,23 @@ class Location:
 
 LOCATIONS = {
     "city": Location(
-        name="🏙️ Город",
-        description="Заброшенный город-призрак. Руины зданий, ржавые машины...",
+        name="🏙️ City",
+        description="Abandoned city-ghost. Building ruins, rusty cars...",
         connected_locations=["hospital", "market", "shelter"],
     ),
     "hospital": Location(
-        name="🏥 Больница",
-        description="Полуразрушенная больница. Внутри можно найти медикаменты и лечение.",
+        name="🏥 Hospital",
+        description="Half-destroyed hospital. You can find medicine here.",
         connected_locations=["city"],
     ),
     "market": Location(
-        name="🛒 Черный рынок",
-        description="Подпольный рынок сталкеров. Здесь можно купить и продать вещи.",
+        name="🛒 Black Market",
+        description="Underground market of stalkers. Buy and sell items.",
         connected_locations=["city"],
     ),
     "shelter": Location(
-        name="🔒 Убежище",
-        description="Тайное убежище сталкеров. Пока закрыто для тебя.",
+        name="🔒 Shelter",
+        description="Secret stalker shelter. Currently locked for you.",
         connected_locations=["city"],
         shelter_unlocked=True,
     ),
@@ -44,10 +44,10 @@ def get_location(location_id: str) -> Optional[Location]:
 def get_location_description(location_id: str, shelter_unlocked: bool = False) -> str:
     loc = get_location(location_id)
     if not loc:
-        return "Неизвестная локация"
+        return "Unknown location"
 
     if location_id == "shelter" and not shelter_unlocked:
-        return "🔒 Убежище\n\nТы стоишь перед массивной металлической дверью. Она заперта.\nНужно найти способ попасть внутрь..."
+        return "🔒 Shelter\n\nYou stand in front of a massive metal door. It's locked.\nYou need to find a way to get inside..."
 
     return f"{loc.name}\n\n{loc.description}"
 
@@ -68,7 +68,7 @@ def get_available_moves(current_location: str, shelter_unlocked: bool = False) -
 
 def format_locations_list(locations: list[str]) -> str:
     if not locations:
-        return "Некуда идти"
+        return "Nowhere to go"
     result = []
     for loc_id in locations:
         loc = get_location(loc_id)
