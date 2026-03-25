@@ -13,8 +13,8 @@ GROUP_ID = int(os.getenv("GROUP_ID", "0"))
 # URL Mini App
 MINI_APP_URL = "https://askoll88.github.io/stalker_bot/mini_app/"
 
-# VK Mini App ID (получить в vk.com/apps?act=manage)
-VK_APP_ID = os.getenv("VK_APP_ID", "0")
+# VK Mini App ID
+VK_APP_ID = "54505998"
 
 # Настройки базы данных PostgreSQL
 DB_CONFIG = {

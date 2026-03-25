@@ -3,48 +3,48 @@ chcp 65001 >nul
 title S.T.A.L.K.E.R. Bot
 
 echo ========================================
-echo   S.T.A.L.K.E.R. Bot - ЗАПУСК
+echo   S.T.A.L.K.E.R. Bot - START
 echo ========================================
 echo.
 
 cd /d "%~dp0"
 
-REM Проверка Python
+REM Check Python
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python не найден!
-    echo Установите Python: https://python.org
+    echo [ERROR] Python not found!
+    echo Install Python: https://python.org
     pause
     exit /b 1
 )
 
-echo [OK] Python найден
+echo [OK] Python found
 echo.
 
-REM Проверка зависимостей
-echo [INFO] Проверка зависимостей...
+REM Check dependencies
+echo [INFO] Checking dependencies...
 pip show vk-api >nul 2>&1
 if errorlevel 1 (
-    echo [INFO] Установка зависимостей...
+    echo [INFO] Installing dependencies...
     pip install -r requirements.txt
 )
 
 echo.
 echo ========================================
-echo   ЗАПУСК БОТА...
+echo   STARTING BOT...
 echo ========================================
 echo.
 
-REM Создаем папку для логов
+REM Create logs folder
 if not exist "logs" mkdir logs
 
-REM Запуск бота в новом окне с логами
-start "S.T.A.L.K.E.R. Bot - Лог" /d "%~dp0" cmd /c "python main.py 2^>^&1 | tee logs\bot.log & pause"
+REM Run bot in new window with logs
+start "S.T.A.L.K.E.R. Bot - Log" /d "%~dp0" cmd /c "python main.py 2^>^&1 | tee logs\bot.log & pause"
 
-echo [OK] Бот запущен в новом окне
-echo Логи сохраняются в: logs\bot.log
+echo [OK] Bot started in new window
+echo Logs saved to: logs\bot.log
 echo.
-echo Для остановки бота запустите stop_bot.bat
+echo Run stop_bot.bat to stop the bot
 echo.
 
 pause
