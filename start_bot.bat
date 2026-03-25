@@ -10,7 +10,7 @@ echo.
 cd /d "%~dp0"
 
 REM Check Python
-python --version >nul 2>&1
+py --version >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Python not found!
     echo Install Python: https://python.org
@@ -23,10 +23,10 @@ echo.
 
 REM Check dependencies
 echo [INFO] Checking dependencies...
-pip show vk-api >nul 2>&1
+py -m pip show vk-api >nul 2>&1
 if errorlevel 1 (
     echo [INFO] Installing dependencies...
-    pip install -r requirements.txt
+    py -m pip install -r requirements.txt
 )
 
 echo.
@@ -39,7 +39,7 @@ REM Create logs folder
 if not exist "logs" mkdir logs
 
 REM Run bot in new window with logs
-start "S.T.A.L.K.E.R. Bot - Log" /d "%~dp0" cmd /c "python main.py 2^>^&1 | tee logs\bot.log & pause"
+start "S.T.A.L.K.E.R. Bot - Log" /d "%~dp0" cmd /c "py main.py 2^>^&1 | tee logs\bot.log & pause"
 
 echo [OK] Bot started in new window
 echo Logs saved to: logs\bot.log
