@@ -1,0 +1,465 @@
+/* S.T.A.L.K.E.R. - Инвентарь Mini App */
+/* Стиль: Пост-апокалиптический, темный, зеленый */
+
+:root {
+    --stalker-green: #39ff14;
+    --stalker-green-dim: #1a5c0a;
+    --stalker-green-glow: rgba(57, 255, 20, 0.3);
+    --bg-dark: #0a0a0a;
+    --bg-panel: #111111;
+    --bg-slot: #1a1a1a;
+    --border-color: #2a2a2a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #888;
+    --danger: #ff4444;
+    --warning: #ffaa00;
+    --health-color: #ff4444;
+    --fatigue-color: #ffaa00;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Эффект CRT монитора */
+.app-container {
+    min-height: 100vh;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.1) 0px,
+            rgba(0, 0, 0, 0.1) 1px,
+            transparent 1px,
+            transparent 2px
+        ),
+        var(--bg-dark);
+    position: relative;
+}
+
+.app-container::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.5) 100%);
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Экраны */
+.screen {
+    padding: 16px;
+    min-height: 100vh;
+}
+
+.screen.hidden {
+    display: none;
+}
+
+/* Загрузка */
+.loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 20px;
+}
+
+.pda {
+    width: 60px;
+    height: 60px;
+    border: 3px solid var(--stalker-green);
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        box-shadow: 0 0 10px var(--stalker-green-glow);
+        opacity: 1;
+    }
+    50% { 
+        box-shadow: 0 0 30px var(--stalker-green-glow);
+        opacity: 0.7;
+    }
+}
+
+.loader p {
+    color: var(--stalker-green);
+    font-size: 14px;
+    letter-spacing: 3px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Хедер */
+.header {
+    background: var(--bg-panel);
+    border: 1px solid var(--stalker-green-dim);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pda-icon {
+    font-size: 24px;
+    animation: signal 2s infinite;
+}
+
+@keyframes signal {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.header-title {
+    color: var(--stalker-green);
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--stalker-green-glow);
+}
+
+.player-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 12px;
+}
+
+#player-name {
+    color: var(--stalker-green);
+}
+
+#player-level {
+    color: var(--text-secondary);
+}
+
+/* Панель статистики */
+.stats-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.stat:last-child {
+    margin-bottom: 0;
+}
+
+.stat-icon {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+}
+
+.stat-bar {
+    flex: 1;
+    height: 12px;
+    background: var(--bg-slot);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.stat-fill {
+    height: 100%;
+    background: var(--health-color);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px var(--health-color);
+}
+
+.stat-fill.fatigue {
+    background: var(--fatigue-color);
+    box-shadow: 0 0 10px var(--fatigue-color);
+}
+
+.stat-value {
+    font-size: 12px;
+    min-width: 60px;
+    text-align: right;
+}
+
+.stat-value.money {
+    color: var(--warning);
+    font-size: 14px;
+}
+
+/* Секции */
+.inventory-section,
+.equipment-section {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.inventory-section h2,
+.equipment-section h2 {
+    font-size: 14px;
+    color: var(--stalker-green);
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
+
+/* Сетка инвентаря */
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.inv-slot {
+    aspect-ratio: 1;
+    background: var(--bg-slot);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.inv-slot:hover {
+    border-color: var(--stalker-green);
+    box-shadow: 0 0 15px var(--stalker-green-glow);
+}
+
+.inv-slot.empty {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.inv-slot.empty:hover {
+    border-color: var(--border-color);
+    box-shadow: none;
+}
+
+.inv-slot .count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+/* Экипировка */
+.equipment-slots {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.equip-slot {
+    background: var(--bg-slot);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.slot-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.slot-item {
+    font-size: 20px;
+    min-height: 30px;
+}
+
+/* Кнопки */
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.btn {
+    flex: 1;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-primary {
+    background: var(--stalker-green-dim);
+    color: var(--stalker-green);
+    border: 2px solid var(--stalker-green);
+}
+
+.btn-primary:hover {
+    background: var(--stalker-green);
+    color: var(--bg-dark);
+    box-shadow: 0 0 20px var(--stalker-green-glow);
+}
+
+.btn-secondary {
+    background: var(--bg-slot);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--text-secondary);
+}
+
+/* Модальное окно */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: var(--bg-panel);
+    border: 2px solid var(--stalker-green-dim);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+.modal-header {
+    background: var(--bg-slot);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    color: var(--stalker-green);
+    font-size: 16px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 20px;
+    text-align: center;
+}
+
+.item-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.item-description {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.item-stats {
+    background: var(--bg-slot);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.item-stats div {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.modal-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Футер */
+.footer {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+/* Адаптивность */
+@media (max-height: 600px) {
+    .inventory-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+    
+    .stats-panel, 
+    .inventory-section, 
+    .equipment-section {
+        padding: 8px;
+    }
+    
+    .action-buttons {
+        margin-bottom: 8px;
+    }
+    
+    .btn {
+        padding: 10px;
+    }
+}

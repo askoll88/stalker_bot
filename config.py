@@ -7,6 +7,12 @@ load_dotenv()
 # Токен VK группы
 VK_TOKEN = os.getenv("VK_TOKEN", "YOUR_VK_TOKEN_HERE")
 
+# ID группы VK
+GROUP_ID = int(os.getenv("GROUP_ID", "0"))
+
+# URL Mini App
+MINI_APP_URL = os.getenv("MINI_APP_URL", "https://your-domain.com/mini_app/")
+
 # Настройки базы данных PostgreSQL
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),

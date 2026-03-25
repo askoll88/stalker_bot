@@ -2,14 +2,19 @@
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+from vk_api.ui_sdk import open_app_vk
 import random
 import sys
 import os
+import json
 
 # Добавляем пути для импортов
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import VK_TOKEN, GROUP_ID, FATIGUE_PER_ACTION, EXP_TO_LEVEL
+from config import (
+    VK_TOKEN, GROUP_ID, FATIGUE_PER_ACTION, EXP_TO_LEVEL,
+    HEAL_COST, MAX_FATIGUE
+)
 from db.database import db
 from game.locations import (
     get_location_description, 
@@ -18,6 +23,9 @@ from game.locations import (
     get_location
 )
 
+# URL Mini App (заменить на свой)
+MINI_APP_URL = "https://your-domain.com/mini_app/"
+
 
 def create_main_keyboard(shelter_unlocked: bool = False) -> VkKeyboard:
     """Главная клавиатура с кнопками"""
@@ -25,6 +33,9 @@ def create_main_keyboard(shelter_unlocked: bool = False) -> VkKeyboard:
     
     keyboard.add_button("📍 Локация", color=VkKeyboardColor.PRIMARY)
     keyboard.add_button("📊 Статистика", color=VkKeyboardColor.PRIMARY)
+    keyboard.add_line()
+    keyboard.add_button("🎒 Инвентарь", color=VkKeyboardColor.PRIMARY)
+    keyboard.add_button("⚔️ Атаковать", color=VkKeyboardColor.NEGATIVE)
     keyboard.add_line()
     keyboard.add_button("🏥 Больница", color=VkKeyboardColor.SECONDARY)
     keyboard.add_button("🛒 Черный рынок", color=VkKeyboardColor.SECONDARY)
@@ -60,8 +71,46 @@ def create_location_keyboard(current_location: str, shelter_unlocked: bool = Fal
                 keyboard.add_line()
     
     keyboard.add_line()
-    keyboard.add_button("🔙 Назад", color=VkKeyboardColor.NEGATIVE)
-    
+    keyboard.add_button("🔙 В город", color=VkKeyboardColor.NEGATIVE)
+
+    return keyboard
+
+
+def create_hospital_keyboard() -> VkKeyboard:
+    """Клавиатура больницы"""
+    keyboard = VkKeyboard(one_time=False)
+
+    keyboard.add_button("💊 Лечение (50 руб)", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_line()
+    keyboard.add_button("🔙 В город", color=VkKeyboardColor.NEGATIVE)
+
+    return keyboard
+
+
+def create_market_keyboard() -> VkKeyboard:
+    """Клавиатура черного рынка"""
+    keyboard = VkKeyboard(one_time=False)
+
+    keyboard.add_button("🔫 Оружие", color=VkKeyboardColor.PRIMARY)
+    keyboard.add_button("🩹 Аптечки", color=VkKeyboardColor.PRIMARY)
+    keyboard.add_line()
+    keyboard.add_button("🍞 Еда", color=VkKeyboardColor.SECONDARY)
+    keyboard.add_button("📦 Патроны", color=VkKeyboardColor.SECONDARY)
+    keyboard.add_line()
+    keyboard.add_button("🔙 В город", color=VkKeyboardColor.NEGATIVE)
+
+    return keyboard
+
+
+def create_shelter_keyboard() -> VkKeyboard:
+    """Клавиатура убежища"""
+    keyboard = VkKeyboard(one_time=False)
+
+    keyboard.add_button("🛏️ Отдохнуть", color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button("📦 Инвентарь", color=VkKeyboardColor.PRIMARY)
+    keyboard.add_line()
+    keyboard.add_button("🔙 В город", color=VkKeyboardColor.NEGATIVE)
+
     return keyboard
 
 
@@ -70,38 +119,74 @@ def get_stats_message(player) -> str:
     exp_needed = EXP_TO_LEVEL * player['level']
     exp_progress = player['exp'] % exp_needed
     
+    # Прогресс-бар
+    bar_length = 10
+    filled = int(exp_progress / exp_needed * bar_length)
+    bar = "█" * filled + "░" * (bar_length - filled)
+
     return f"""📊 СТАТИСТИКА ПЕРСОНАЖА
 
 👤 Имя: {player['name']}
-🆙 Уровень: {player['level']}
+🆙 Уровень: {player['level']} [{bar}]
 
 ❤️ Здоровье: {player['health']}/100
 ⚔️ Атака: {player['attack']}
-🔋 Усталость: {player['fatigue']}/100
+🔋 Усталость: {player['fatigue']}/{MAX_FATIGUE}
 
 💰 Деньги: {player['money']} руб.
 
 📍 Локация: {get_location(player['current_location']).name if get_location(player['current_location']) else 'Неизвестно'}
 
 ✨ Опыт: {exp_progress}/{exp_needed}
-🔓 Убежище: {'Открыто' if player['shelter_unlocked'] else 'Закрыто'}"""
+🔓 Убежище: {'Открыто ✅' if player['shelter_unlocked'] else 'Закрыто 🔒'}"""
 
 
-def handle_player_action(vk, user_id: int, action: str):
+def get_inventory_message(player) -> str:
+    """Формирует сообщение с инвентарём"""
+    # Получаем инвентарь игрока
+    inventory = db.get_inventory(player['vk_id'])
+
+    if not inventory:
+        return "🎒 Инвентарь пуст!"
+
+    items_text = []
+    for slot in inventory:
+        if slot and slot.get('item_id'):
+            item = db.get_item(slot['item_id'])
+            if item:
+                count = slot.get('count', 1)
+                items_text.append(f"• {item['icon']} {item['name']} x{count}")
+
+    if not items_text:
+        return "🎒 Инвентарь пуст!"
+
+    return "🎒 ИНВЕНТАРЬ\n\n" + "\n".join(items_text)
+
+
+def send_message(vk, user_id: int, message: str, keyboard=None):
+    """Отправка сообщения"""
+    kwargs = {
+        "user_id": user_id,
+        "message": message,
+        "random_id": random.randint(0, 2**31)
+    }
+    if keyboard:
+        kwargs["keyboard"] = keyboard.get_keyboard()
+
+    vk.messages.send(**kwargs)
+
+
+def handle_player_action(vk, user_id: int, action: str, event=None):
     """Обработка действий игрока"""
     player = db.get_player(user_id)
     if not player:
         send_message(vk, user_id, "❌ Вы не зарегистрированы. Напишите /start")
         return
-    
-    # Проверка усталости
-    if player['fatigue'] >= 100:
-        send_message(vk, user_id, "😴 Вы слишком устали! Отдохните в убежище или больнице.")
-        return
-    
+
     # Проверка здоровья
     if player['health'] <= 0:
-        send_message(vk, user_id, "💀 Вы погибли! Посетите больницу для воскрешения.")
+        send_message(vk, user_id, "💀 Вы погибли! Идите в больницу для воскрешения.",
+                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
         return
     
     if action == "stats":
@@ -112,7 +197,28 @@ def handle_player_action(vk, user_id: int, action: str):
             keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
             random_id=random.randint(0, 2**31)
         )
-    
+
+    elif action == "inventory":
+        # Открываем Mini App
+        try:
+            vk.messages.send(
+                user_id=user_id,
+                message="🎒 Открываю инвентарь...",
+                keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
+                random_id=random.randint(0, 2**31)
+            )
+            # Отправляем ссылку на Mini App
+            send_message(vk, user_id, f"🎒 ОТКРОЙ ИНВЕНТАРЬ:\n\n{MINI_APP_URL}?vk_user_id={user_id}")
+        except Exception as e:
+            # Если не работает Mini App, показываем текстовый инвентарь
+            msg = get_inventory_message(player)
+            vk.messages.send(
+                user_id=user_id,
+                message=msg,
+                keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
+                random_id=random.randint(0, 2**31)
+            )
+
     elif action == "location":
         loc_desc = get_location_description(player['current_location'], player['shelter_unlocked'])
         available = get_available_moves(player['current_location'], player['shelter_unlocked'])
@@ -139,17 +245,171 @@ def handle_player_action(vk, user_id: int, action: str):
         move_to_location(vk, user_id, "city")
     
     elif action == "heal":
-        # Лечение в больнице
-        if player['current_location'] == "hospital":
-            if player['money'] >= 50:
-                new_health = min(100, player['health'] + 50)
-                new_money = player['money'] - 50
-                db.update_player(user_id, health=new_health, money=new_money)
-                send_message(vk, user_id, "✅ Вы полечились! +50 здоровья. Потрачено: 50 руб.", keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
-            else:
-                send_message(vk, user_id, "❌ Не хватает денег! Нужно 50 руб.", keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
-        else:
-            send_message(vk, user_id, "❌ Лечиться можно только в больнице!")
+        handle_heal(vk, user_id, player)
+
+    elif action == "rest":
+        handle_rest(vk, user_id, player)
+
+    elif action == "attack":
+        handle_attack(vk, user_id, player)
+
+    elif action == "buy_weapon":
+        handle_buy_item(vk, user_id, player, "ak74", 500)
+
+    elif action == "buy_medkit":
+        handle_buy_item(vk, user_id, player, "medkit", 50)
+
+    elif action == "buy_food":
+        handle_buy_item(vk, user_id, player, "bread", 20)
+
+    elif action == "buy_ammo":
+        handle_buy_item(vk, user_id, player, "ammo_5x45", 30)
+
+
+def handle_heal(vk, user_id: int, player):
+    """Лечение в больнице"""
+    if player['current_location'] != "hospital":
+        send_message(vk, user_id, "❌ Лечиться можно только в больнице!")
+        return
+
+    if player['health'] >= 100:
+        send_message(vk, user_id, "✅ Вы полностью здоровы!",
+                    keyboard=create_hospital_keyboard().get_keyboard())
+        return
+
+    if player['money'] >= HEAL_COST:
+        new_health = min(100, player['health'] + 50)
+        new_money = player['money'] - HEAL_COST
+        db.update_player(user_id, health=new_health, money=new_money)
+
+        send_message(vk, user_id, f"✅ Вы полечились!\n\n❤️ +50 здоровья\n💰 Потрачено: {HEAL_COST} руб.\n❤️ Здоровье: {new_health}/100",
+                    keyboard=create_hospital_keyboard().get_keyboard())
+    else:
+        send_message(vk, user_id, f"❌ Не хватает денег! Нужно {HEAL_COST} руб.",
+                    keyboard=create_hospital_keyboard().get_keyboard())
+
+
+def handle_rest(vk, user_id: int, player):
+    """Отдых в убежище"""
+    if player['current_location'] != "shelter":
+        send_message(vk, user_id, "❌ Отдыхать можно только в убежище!")
+        return
+
+    if player['fatigue'] == 0:
+        send_message(vk, user_id, "✅ Вы полны сил! Отдыхать не нужно.",
+                    keyboard=create_shelter_keyboard().get_keyboard())
+        return
+
+    # Снимаем усталость
+    new_fatigue = max(0, player['fatigue'] - 50)
+    db.update_player(user_id, fatigue=new_fatigue)
+
+    send_message(vk, user_id, f"🛏️ Вы отдохнули в убежище!\n\n🔋 Усталость: {player['fatigue']} → {new_fatigue}",
+                keyboard=create_shelter_keyboard().get_keyboard())
+
+
+def handle_attack(vk, user_id: int, player):
+    """Атака монстра/врага"""
+    # Проверка усталости
+    if player['fatigue'] >= MAX_FATIGUE:
+        send_message(vk, user_id, "😴 Вы слишком устали! Отдохните перед боем.",
+                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+        return
+
+    # Генерируем врага
+    monsters = [
+        {"name": "🐕 собака-мутант", "health": 30, "damage": 10, "exp": 20, "money": 15},
+        {"name": "🧟 кровосос", "health": 50, "damage": 20, "exp": 40, "money": 30},
+        {"name": "👹 бюрер", "health": 80, "damage": 30, "exp": 70, "money": 50},
+    ]
+
+    monster = random.choice(monsters)
+    player_damage = player['attack'] + random.randint(-5, 10)
+    monster_damage = monster['damage'] + random.randint(-3, 5)
+
+    # Простой бой - один удар
+    monster['health'] -= player_damage
+    player['health'] -= monster_damage
+
+    # Результат боя
+    if monster['health'] <= 0:
+        # Победа
+        exp_gain = monster['exp']
+        money_gain = monster['money']
+        new_exp = player['exp'] + exp_gain
+        new_money = player['money'] + money_gain
+        new_fatigue = player['fatigue'] + 20
+
+        # Проверка уровня
+        level_up = False
+        new_level = player['level']
+        exp_needed = EXP_TO_LEVEL * player['level']
+
+        if new_exp >= exp_needed:
+            new_level += 1
+            new_exp -= exp_needed
+            level_up = True
+
+        db.update_player(
+            user_id,
+            exp=new_exp,
+            money=new_money,
+            fatigue=new_fatigue,
+            level=new_level,
+            health=max(0, player['health'])
+        )
+
+        msg = f"⚔️ БОЙ С {monster['name']}\n\n"
+        msg += f"Ты нанёс {player_damage} урона!\n"
+        msg += f"Враг нанёс {monster_damage} урона!\n\n"
+        msg += f"✅ ПОБЕДА!\n"
+        msg += f"✨ +{exp_gain} опыта\n"
+        msg += f"💰 +{money_gain} руб."
+
+        if level_up:
+            msg += f"\n\n🆙 УРОВЕНЬ UP! Теперь уровень {new_level}!"
+
+        send_message(vk, user_id, msg,
+                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+    else:
+        # Поражение
+        new_fatigue = player['fatigue'] + 20
+        db.update_player(user_id, health=max(0, player['health']), fatigue=new_fatigue)
+
+        msg = f"⚔️ БОЙ С {monster['name']}\n\n"
+        msg += f"Ты нанёс {player_damage} урона!\n"
+        msg += f"Враг нанёс {monster_damage} урона!\n\n"
+        msg += f"💀 ПОРАЖЕНИЕ\n"
+        msg += f"❤️ Здоровье: {max(0, player['health'])}/100"
+
+        send_message(vk, user_id, msg,
+                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+
+
+def handle_buy_item(vk, user_id: int, player, item_id: str, price: int):
+    """Покупка предмета"""
+    if player['current_location'] != "market":
+        send_message(vk, user_id, "❌ Покупать можно только на Черном рынке!",
+                    keyboard=create_market_keyboard().get_keyboard())
+        return
+
+    if player['money'] < price:
+        send_message(vk, user_id, f"❌ Не хватает денег! Нужно {price} руб.",
+                    keyboard=create_market_keyboard().get_keyboard())
+        return
+
+    # Добавляем предмет в инвентарь
+    success = db.add_item(user_id, item_id, 1)
+
+    if success:
+        db.update_player(user_id, money=player['money'] - price)
+        item = db.get_item(item_id)
+
+        send_message(vk, user_id, f"✅ Куплено: {item['icon']} {item['name']}\n💰 Потрачено: {price} руб.",
+                    keyboard=create_market_keyboard().get_keyboard())
+    else:
+        send_message(vk, user_id, "❌ Не удалось купить предмет!",
+                    keyboard=create_market_keyboard().get_keyboard())
 
 
 def move_to_location(vk, user_id: int, location_id: str):
@@ -168,39 +428,42 @@ def move_to_location(vk, user_id: int, location_id: str):
     if location_id not in current_loc.connected_locations:
         send_message(vk, user_id, "❌ Отсюда туда нельзя попасть!")
         return
-    
+
+    # Проверка усталости для перемещения
+    if player['fatigue'] >= MAX_FATIGUE:
+        send_message(vk, user_id, "😴 Вы слишком устали! Отдохните перед дорогой.",
+                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+        return
+
     # Добавляем усталость
     new_fatigue = player['fatigue'] + FATIGUE_PER_ACTION
     
     # Обновляем локацию
     db.update_player(user_id, current_location=location_id, fatigue=new_fatigue)
     
-    # Показываем новую локацию
+    # Показываем новую локацию с правильной клавиатурой
     player = db.get_player(user_id)
     loc_desc = get_location_description(location_id, player['shelter_unlocked'])
-    available = get_available_moves(location_id, player['shelter_unlocked'])
-    
-    msg = f"{loc_desc}\n\n🚪 Куда пойти?\n\n{format_locations_list(available)}"
-    
+
+    # Выбираем клавиатуру для локации
+    keyboard = None
+    if location_id == "hospital":
+        keyboard = create_hospital_keyboard()
+    elif location_id == "market":
+        keyboard = create_market_keyboard()
+    elif location_id == "shelter":
+        keyboard = create_shelter_keyboard()
+    else:
+        keyboard = create_location_keyboard(location_id, player['shelter_unlocked'])
+
+    msg = f"{loc_desc}\n\n🔋 Усталость: {new_fatigue}/{MAX_FATIGUE}"
+
     vk.messages.send(
         user_id=user_id,
         message=msg,
-        keyboard=create_location_keyboard(location_id, player['shelter_unlocked']).get_keyboard(),
+        keyboard=keyboard.get_keyboard(),
         random_id=random.randint(0, 2**31)
     )
-
-
-def send_message(vk, user_id: int, message: str, keyboard=None):
-    """Отправка сообщения"""
-    kwargs = {
-        "user_id": user_id,
-        "message": message,
-        "random_id": random.randint(0, 2**31)
-    }
-    if keyboard:
-        kwargs["keyboard"] = keyboard.get_keyboard()
-    
-    vk.messages.send(**kwargs)
 
 
 def main():
@@ -234,8 +497,8 @@ def main():
 📍 Ты находишься в Городе.
 ⚠️ Убежище пока закрыто — нужно найти способ попасть внутрь.
 
-Используй кнопки для навигации!"""
-                    
+🎮 Используй кнопки для навигации!"""
+
                     vk.messages.send(
                         user_id=user_id,
                         message=welcome_msg,
@@ -246,7 +509,7 @@ def main():
                     player = db.get_player(user_id)
                     vk.messages.send(
                         user_id=user_id,
-                        message=f"✅ С возвращением, сталкер {player['name']}!\n\nТы в локации: {get_location(player['current_location']).name}",
+                        message=f"✅ С возвращением, сталкер {player['name']}!\n\n📍 Ты в: {get_location(player['current_location']).name}",
                         keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
                         random_id=random.randint(0, 2**31)
                     )
@@ -258,6 +521,12 @@ def main():
             elif text == "📊 статистика" or text == "статистика":
                 handle_player_action(vk, user_id, "stats")
             
+            elif text == "🎒 инвентарь" or text == "инвентарь":
+                handle_player_action(vk, user_id, "inventory")
+
+            elif text == "⚔️ атаковать" or text == "атаковать":
+                handle_player_action(vk, user_id, "attack")
+
             elif "больница" in text:
                 handle_player_action(vk, user_id, "hospital")
             
@@ -267,16 +536,34 @@ def main():
             elif "убежище" in text:
                 handle_player_action(vk, user_id, "shelter")
             
-            elif "назад" in text:
+            elif "лечение" in text or "лечиться" in text:
+                handle_player_action(vk, user_id, "heal")
+
+            elif "отдохнуть" in text:
+                handle_player_action(vk, user_id, "rest")
+
+            elif "назад" in text or "в город" in text:
                 handle_player_action(vk, user_id, "back")
             
+            elif "оружие" in text:
+                handle_player_action(vk, user_id, "buy_weapon")
+
+            elif "аптечк" in text:
+                handle_player_action(vk, user_id, "buy_medkit")
+
+            elif "еда" in text or "хлеб" in text:
+                handle_player_action(vk, user_id, "buy_food")
+
+            elif "патрон" in text:
+                handle_player_action(vk, user_id, "buy_ammo")
+
             # Команда /help
             elif text == '/help':
                 help_msg = """📖 КОМАНДЫ:
 
 /start - Начать игру
-/stats - Показать статистику
-/go [локация] - Перейти к локации
+/stats - Ваша статистика
+/inventory - Открыть инвентарь
 
 🎮 Игра в стиле S.T.A.L.K.E.R."""
                 vk.messages.send(

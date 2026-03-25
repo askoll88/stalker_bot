@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>S.T.A.L.K.E.R. - Инвентарь</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- VK Mini App SDK -->
+    <script src="https://vk.com/jsapi/vkui/vkui.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Загрузка -->
+        <div id="loading" class="screen">
+            <div class="loader">
+                <div class="pda"></div>
+                <p>ЗАГРУЗКА PDA...</p>
+            </div>
+        </div>
+
+        <!-- Главный экран -->
+        <div id="main" class="screen hidden">
+            <!-- Хедер -->
+            <header class="header">
+                <div class="header-content">
+                    <div class="pda-icon">📡</div>
+                    <div class="header-title">PDA ИНВЕНТАРЬ</div>
+                    <div class="player-info">
+                        <span id="player-name">Stalker</span>
+                        <span id="player-level">Lv.1</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Статистика -->
+            <div class="stats-panel">
+                <div class="stat">
+                    <span class="stat-icon">❤️</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="health-bar" style="width: 100%"></div>
+                    </div>
+                    <span class="stat-value" id="health-value">100/100</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-icon">⚡</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill fatigue" id="fatigue-bar" style="width: 0%"></div>
+                    </div>
+                    <span class="stat-value" id="fatigue-value">0/100</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-icon">💰</span>
+                    <span class="stat-value money" id="money-value">100</span>
+                </div>
+            </div>
+
+            <!-- Слоты инвентаря -->
+            <div class="inventory-section">
+                <h2>🎒 ИНВЕНТАРЬ</h2>
+                <div class="inventory-grid" id="inventory-grid">
+                    <!-- Слоты генерируются JS -->
+                </div>
+            </div>
+
+            <!-- Экипировка -->
+            <div class="equipment-section">
+                <h2>⚔️ ЭКИПИРОВКА</h2>
+                <div class="equipment-slots">
+                    <div class="equip-slot" data-slot="weapon">
+                        <div class="slot-label">Оружие</div>
+                        <div class="slot-item" id="slot-weapon">-</div>
+                    </div>
+                    <div class="equip-slot" data-slot="armor">
+                        <div class="slot-label">Броня</div>
+                        <div class="slot-item" id="slot-armor">-</div>
+                    </div>
+                    <div class="equip-slot" data-slot="medkit">
+                        <div class="slot-label">Аптечка</div>
+                        <div class="slot-item" id="slot-medkit">-</div>
+                    </div>
+                    <div class="equip-slot" data-slot="food">
+                        <div class="slot-label">Еда</div>
+                        <div class="slot-item" id="slot-food">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="app.refreshData()">🔄 Обновить</button>
+                <button class="btn btn-primary" onclick="app.openItemDialog()">📦 Инвентарь</button>
+            </div>
+        </div>
+
+        <!-- Модальное окно предмета -->
+        <div id="item-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Предмет</h3>
+                    <button class="close-btn" onclick="app.closeModal()">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="item-icon" id="modal-icon">📦</div>
+                    <p class="item-description" id="modal-desc">Описание предмета</p>
+                    <div class="item-stats" id="modal-stats"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="app.closeModal()">Закрыть</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Футер -->
+        <footer class="footer">
+            <span>S.T.A.L.K.E.R. Bot v1.0</span>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
