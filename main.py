@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import (
     VK_TOKEN, GROUP_ID, FATIGUE_PER_ACTION, EXP_TO_LEVEL,
-    HEAL_COST, MAX_FATIGUE
+    HEAL_COST, MAX_FATIGUE, MINI_APP_URL, VK_APP_ID
 )
 from db.database import db
 from game.locations import (
@@ -23,8 +23,7 @@ from game.locations import (
     get_location
 )
 
-# URL Mini App (заменить на свой)
-MINI_APP_URL = "https://your-domain.com/mini_app/"
+# URL Mini App (из config.py)
 
 
 def create_main_keyboard(shelter_unlocked: bool = False) -> VkKeyboard:
@@ -200,24 +199,29 @@ def handle_player_action(vk, user_id: int, action: str, event=None):
 
     elif action == "inventory":
         # Открываем Mini App
-        try:
-            vk.messages.send(
-                user_id=user_id,
-                message="🎒 Открываю инвентарь...",
-                keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
-                random_id=random.randint(0, 2**31)
-            )
-            # Отправляем ссылку на Mini App
-            send_message(vk, user_id, f"🎒 ОТКРОЙ ИНВЕНТАРЬ:\n\n{MINI_APP_URL}?vk_user_id={user_id}")
-        except Exception as e:
-            # Если не работает Mini App, показываем текстовый инвентарь
-            msg = get_inventory_message(player)
-            vk.messages.send(
-                user_id=user_id,
-                message=msg,
-                keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
-                random_id=random.randint(0, 2**31)
-            )
+        app_url = f"{MINI_APP_URL}?vk_user_id={user_id}"
+
+        # Пробуем открыть через VK Mini App API
+        if VK_APP_ID != "0":
+            try:
+                # Используем VK Mini App
+                send_message(vk, user_id,
+                    f"🎒 ОТКРЫВАЮ ИНВЕНТАРЬ...\n\n"
+                    f"Нажми на кнопку ниже или ссылку:",
+                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+
+                # Отправляем ссылку на Mini App
+                vk.messages.send(
+                    user_id=user_id,
+                    message=f"🎒 [app{VK_APP_ID}|Открыть инвентарь]",
+                    random_id=random.randint(0, 2**31)
+                )
+            except Exception as e:
+                pass
+
+        # Всегда отправляем ссылку как fallback
+        send_message(vk, user_id,
+            f"🎒 ИНВЕНТАРЬ:\n\n{app_url}")
 
     elif action == "location":
         loc_desc = get_location_description(player['current_location'], player['shelter_unlocked'])
