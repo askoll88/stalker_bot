@@ -6,6 +6,7 @@ from game.locations import LOCATIONS, get_available_moves, get_location
 from game.keyboards import (
     create_main_keyboard, create_location_keyboard,
     create_hospital_keyboard, create_checkpoint_keyboard,
+    create_checkpoint_shop_keyboard,
     get_payload, create_keyboard
 )
 from game.items import ITEMS, get_item, get_items_by_type
@@ -72,28 +73,31 @@ def handle_payload(vk_id: int, payload: dict, name: str = None) -> tuple:
     cmd = payload.get("command", payload.get("cmd", ""))
     player = get_player(vk_id, name)
 
-    if cmd in ("stats",):
+    if cmd in ("статистика",):
         return player.get_stats_text(), create_main_keyboard()
 
-    if cmd in ("heal",):
+    if cmd in ("лечение",):
         return handle_heal(player)
 
-    if cmd in ("help",):
+    if cmd in ("помощь",):
         return handle_help()
 
-    if cmd in ("inventory",):
+    if cmd in ("инвентарь",):
         return "🎒 Инвентарь\n\nПусто! Посети Чёрный рынок для покупки снаряжения.", create_main_keyboard()
 
-    if cmd in ("menu",):
+    if cmd in ("меню",):
         # Возврат в главное меню
         return "🏠 Главное меню\n\nВыбери действие:", create_main_keyboard()
 
-    if cmd in ("buy", "buy_num"):
+    if cmd in ("рынок_закрыт",):
+        return "🛒 Чёрный рынок\n\n🚫 Временно закрыт на реконструкцию.\n\nСкоро здесь появится новый ассортимент товаров!", create_main_keyboard()
+
+    if cmd in ("купить",):
         item_id = payload.get("item", "")
         if item_id:
             return handle_buy(player, item_id)
 
-    if cmd in ("shop",):
+    if cmd in ("магазин",):
         category = payload.get("category", "")
         if category:
             return handle_shop(player, category)
@@ -103,10 +107,13 @@ def handle_payload(vk_id: int, payload: dict, name: str = None) -> tuple:
         if npc_id:
             return handle_npc(player, npc_id)
 
-    if cmd in ("back_to_checkpoint",):
+    if cmd in ("назад_кпп",):
         return "🚧 КПП\n\nТы на контрольно-пропускном пункте.", create_checkpoint_keyboard()
 
-    if cmd in ("go",):
+    if cmd in ("магазин_кпп",):
+        return "🛒 МАГАЗИН - КПП\n\nВыбери товары:", create_checkpoint_shop_keyboard()
+
+    if cmd in ("идти",):
         loc = payload.get("loc", "")
         if loc:
             return handle_go(player, loc)
@@ -230,6 +237,10 @@ def handle_buy(player, item_id: str) -> tuple:
     from db.database import db
 
     if item.type == "heal":
+        # Аптечки можно купить в больнице и на КПП
+        if player.current_location not in ("hospital", "checkpoint"):
+            return "🛒 Покупки доступны только в магазине.", create_main_keyboard()
+
         if player.health >= INITIAL_HEALTH:
             return "❤️ У тебя полное здоровье!", create_checkpoint_keyboard() if player.current_location == "checkpoint" else create_hospital_keyboard()
 
@@ -277,6 +288,20 @@ def handle_shop(player, category: str) -> tuple:
     db.update_player(player.vk_id, shop_category=category)
     player.shop_category = category
 
+    # Если выбрана категория "all" - показываем все товары
+    if category == "all":
+        from game.items import ITEMS
+        items = list(ITEMS.values())
+        text = "🛒 МАГАЗИН - ВСЕ ТОВАРЫ\n\n"
+        for i, item in enumerate(items, 1):
+            text += f"{i}. {item.name} - {item.price} руб.\n"
+        text += "\n💡 Введи номер товара для покупки"
+
+        buttons = [
+            [{"action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "назад_кпп"})}, "color": "secondary"}]
+        ]
+        return text, create_keyboard(buttons)
+
     items = get_items_by_type(category)
     if not items:
         return "❓ Нет товаров в этой категории.", create_checkpoint_keyboard()
@@ -286,7 +311,8 @@ def handle_shop(player, category: str) -> tuple:
         "weapon": "🔫 ОРУЖИЕ",
         "armor": "🛡️ БРОНЯ",
         "energy": "⚡ ЭНЕРГЕТИКИ",
-        "heal": "💊 АПТЕЧКИ"
+        "heal": "💊 АПТЕЧКИ",
+        "antirad": "☢️ АНТИРАДЫ"
     }
 
     text = f"{category_names.get(category, category.upper())}\n\n"
@@ -297,7 +323,7 @@ def handle_shop(player, category: str) -> tuple:
 
     # Только кнопка назад
     buttons = [
-        [{"action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "back_to_checkpoint"})}, "color": "secondary"}]
+        [{"action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "назад_кпп"})}, "color": "secondary"}]
     ]
 
     return text, create_keyboard(buttons)

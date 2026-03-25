@@ -32,6 +32,14 @@ ITEMS = {
         type="heal",
         value=60
     ),
+    "medicine_kit": Item(
+        id="medicine_kit",
+        name="🚑 Мед. аптечка",
+        description="Полная медицинская аптечка. Восстанавливает 100 HP.",
+        price=50,
+        type="heal",
+        value=100
+    ),
     "antirad": Item(
         id="antirad",
         name="💉 Антирад",
@@ -136,11 +144,12 @@ def get_shop_items(location: str) -> list[Item]:
     if location == "hospital":
         return [ITEMS["bandage"], ITEMS["medkit"], ITEMS["antirad"]]
     elif location == "checkpoint":
-        # Оружие + броня + энергетики
+        # Оружие + броня + энергетики + аптечки
         return [
             ITEMS["pm"], ITEMS["ak74"], ITEMS["mp5"], ITEMS["svd"],
             ITEMS["vest"], ITEMS["stalker_armor"], ITEMS["military_armor"],
-            ITEMS["energy_drink"], ITEMS["energy_bottle"]
+            ITEMS["energy_drink"], ITEMS["energy_bottle"],
+            ITEMS["bandage"], ITEMS["medkit"]
         ]
     return []
 

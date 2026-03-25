@@ -22,30 +22,34 @@ def create_hospital_keyboard() -> str:
         # Ряд 1: Купить предметы
         [
             {
-                "action": {"type": "text", "label": "🩹 Бинт (50₽)", "payload": json.dumps({"cmd": "buy", "item": "bandage"})},
+                "action": {"type": "text", "label": "🩹 Бинт (50₽)", "payload": json.dumps({"cmd": "купить", "item": "bandage"})},
                 "color": "positive"
             },
             {
-                "action": {"type": "text", "label": "💊 Аптечка (100₽)", "payload": json.dumps({"cmd": "buy", "item": "medkit"})},
+                "action": {"type": "text", "label": "💊 Аптечка (100₽)", "payload": json.dumps({"cmd": "купить", "item": "medkit"})},
                 "color": "positive"
             }
         ],
         [
             {
-                "action": {"type": "text", "label": "💉 Антирад (200₽)", "payload": json.dumps({"cmd": "buy", "item": "antirad"})},
+                "action": {"type": "text", "label": "🚑 Мед. аптечка (50₽)", "payload": json.dumps({"cmd": "купить", "item": "medicine_kit"})},
+                "color": "positive"
+            },
+            {
+                "action": {"type": "text", "label": "💉 Антирад (200₽)", "payload": json.dumps({"cmd": "купить", "item": "antirad"})},
                 "color": "positive"
             }
         ],
         # Ряд 2: Лечение и возврат
         [
             {
-                "action": {"type": "text", "label": "⚕️ Лечение (50₽)", "payload": json.dumps({"cmd": "heal"})},
+                "action": {"type": "text", "label": "⚕️ Лечение (50₽)", "payload": json.dumps({"cmd": "лечение"})},
                 "color": "primary"
             }
         ],
         [
             {
-                "action": {"type": "text", "label": "🔙 Главное меню", "payload": json.dumps({"cmd": "menu"})},
+                "action": {"type": "text", "label": "🔙 В город", "payload": json.dumps({"cmd": "меню"})},
                 "color": "secondary"
             }
         ]
@@ -54,48 +58,114 @@ def create_hospital_keyboard() -> str:
 
 
 def create_checkpoint_keyboard() -> str:
-    """Клавиатура КПП с магазином и NPC"""
+    """Клавиатура КПП с кнопкой магазина и NPC"""
     buttons = [
         # Ряд 1: Магазин
         [
             {
-                "action": {"type": "text", "label": "🔫 Оружие", "payload": json.dumps({"cmd": "shop", "category": "weapon"})},
+                "action": {"type": "text", "label": "🛒 МАГАЗИН", "payload": json.dumps({"cmd": "магазин_кпп"})},
                 "color": "primary"
-            },
-            {
-                "action": {"type": "text", "label": "🛡️ Броня", "payload": json.dumps({"cmd": "shop", "category": "armor"})},
-                "color": "primary"
-            }
-        ],
-        [
-            {
-                "action": {"type": "text", "label": "⚡ Энергетики", "payload": json.dumps({"cmd": "shop", "category": "energy"})},
-                "color": "positive"
-            },
-            {
-                "action": {"type": "text", "label": "💊 Аптечки", "payload": json.dumps({"cmd": "shop", "category": "heal"})},
-                "color": "positive"
             }
         ],
         # Ряд 2: NPC
         [
             {
                 "action": {"type": "text", "label": "👨‍🔬 Учёный", "payload": json.dumps({"cmd": "npc", "npc": "scientist"})},
-                "color": "secondary"
+                "color": "default"
             },
             {
                 "action": {"type": "text", "label": "💂 Военный", "payload": json.dumps({"cmd": "npc", "npc": "military"})},
-                "color": "secondary"
+                "color": "default"
             },
             {
                 "action": {"type": "text", "label": "🧔 Барыга", "payload": json.dumps({"cmd": "npc", "npc": "dealer"})},
-                "color": "secondary"
+                "color": "default"
             }
         ],
         # Ряд 3: Возврат
         [
             {
-                "action": {"type": "text", "label": "🔙 Главное меню", "payload": json.dumps({"cmd": "menu"})},
+                "action": {"type": "text", "label": "🔙 В город", "payload": json.dumps({"cmd": "меню"})},
+                "color": "secondary"
+            }
+        ]
+    ]
+    return create_keyboard(buttons)
+
+
+def create_checkpoint_shop_keyboard() -> str:
+    """Клавиатура магазина на КПП с товарами"""
+    buttons = [
+        # Ряд 1: Оружие
+        [
+            {
+                "action": {"type": "text", "label": "🔫 ПМ (500₽)", "payload": json.dumps({"cmd": "купить", "item": "pm"})},
+                "color": "positive"
+            },
+            {
+                "action": {"type": "text", "label": "🔫 АК-74 (2500₽)", "payload": json.dumps({"cmd": "купить", "item": "ak74"})},
+                "color": "positive"
+            }
+        ],
+        [
+            {
+                "action": {"type": "text", "label": "🔫 MP5 (3000₽)", "payload": json.dumps({"cmd": "купить", "item": "mp5"})},
+                "color": "positive"
+            },
+            {
+                "action": {"type": "text", "label": "🔫 СВД (8000₽)", "payload": json.dumps({"cmd": "купить", "item": "svd"})},
+                "color": "positive"
+            }
+        ],
+        # Ряд 2: Броня
+        [
+            {
+                "action": {"type": "text", "label": "🦺 Бронежилет (800₽)", "payload": json.dumps({"cmd": "купить", "item": "vest"})},
+                "color": "primary"
+            },
+            {
+                "action": {"type": "text", "label": "🧥 Бронекостюм (3000₽)", "payload": json.dumps({"cmd": "купить", "item": "stalker_armor"})},
+                "color": "primary"
+            }
+        ],
+        [
+            {
+                "action": {"type": "text", "label": "🛡️ Военный костюм (7000₽)", "payload": json.dumps({"cmd": "купить", "item": "military_armor"})},
+                "color": "primary"
+            }
+        ],
+        # Ряд 3: Энергетики
+        [
+            {
+                "action": {"type": "text", "label": "⚡ Энергетик (30₽)", "payload": json.dumps({"cmd": "купить", "item": "energy_drink"})},
+                "color": "positive"
+            },
+            {
+                "action": {"type": "text", "label": "⚡ Бутылка (70₽)", "payload": json.dumps({"cmd": "купить", "item": "energy_bottle"})},
+                "color": "positive"
+            }
+        ],
+        # Ряд 4: Аптечки и Антирады
+        [
+            {
+                "action": {"type": "text", "label": "🩹 Бинт (50₽)", "payload": json.dumps({"cmd": "купить", "item": "bandage"})},
+                "color": "secondary"
+            },
+            {
+                "action": {"type": "text", "label": "💊 Аптечка (100₽)", "payload": json.dumps({"cmd": "купить", "item": "medkit"})},
+                "color": "secondary"
+            }
+        ],
+        [
+            {
+                "action": {"type": "text", "label": "💉 Антирад (200₽)", "payload": json.dumps({"cmd": "купить", "item": "antirad"})},
+                "color": "secondary"
+            }
+        ],
+        # Ряд 5: Назад к КПП
+        [
+            {
+                "action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "назад_кпп"})},
                 "color": "secondary"
             }
         ]
@@ -123,7 +193,7 @@ def create_location_keyboard(current_location: str, shelter_unlocked: bool = Fal
                 "action": {
                     "type": "text",
                     "label": label,
-                    "payload": json.dumps({"cmd": "go", "loc": loc_id})
+                    "payload": json.dumps({"cmd": "идти", "loc": loc_id})
                 },
                 "color": "primary"
             }])
@@ -131,7 +201,7 @@ def create_location_keyboard(current_location: str, shelter_unlocked: bool = Fal
     # Всегда добавляем кнопку "Назад в меню"
     buttons.append([
         {
-            "action": {"type": "text", "label": "🔙 Главное меню", "payload": json.dumps({"cmd": "menu"})},
+            "action": {"type": "text", "label": "🔙 В город", "payload": json.dumps({"cmd": "меню"})},
             "color": "secondary"
         }
     ])
@@ -145,33 +215,33 @@ def create_main_keyboard() -> str:
         # Ряд 1: Больница, Рынок и КПП
         [
             {
-                "action": {"type": "text", "label": "🏥 Больница", "payload": json.dumps({"cmd": "go", "loc": "hospital"})},
+                "action": {"type": "text", "label": "🏥 Больница", "payload": json.dumps({"cmd": "идти", "loc": "hospital"})},
                 "color": "positive"
             },
             {
-                "action": {"type": "text", "label": "🛒 Рынок", "payload": json.dumps({"cmd": "go", "loc": "market"})},
+                "action": {"type": "text", "label": "🛒 Черный рынок", "payload": json.dumps({"cmd": "рынок_закрыт"})},
                 "color": "positive"
             },
             {
-                "action": {"type": "text", "label": "🚧 КПП", "payload": json.dumps({"cmd": "go", "loc": "checkpoint"})},
+                "action": {"type": "text", "label": "🚧 КПП", "payload": json.dumps({"cmd": "идти", "loc": "checkpoint"})},
                 "color": "positive"
             }
         ],
         # Ряд 2: Статистика и Инвентарь
         [
             {
-                "action": {"type": "text", "label": "📊 Статистика", "payload": json.dumps({"cmd": "stats"})},
+                "action": {"type": "text", "label": "📊 Статистика", "payload": json.dumps({"cmd": "статистика"})},
                 "color": "primary"
             },
             {
-                "action": {"type": "text", "label": "🎒 Инвентарь", "payload": json.dumps({"cmd": "inventory"})},
+                "action": {"type": "text", "label": "🎒 Инвентарь", "payload": json.dumps({"cmd": "инвентарь"})},
                 "color": "primary"
             }
         ],
         # Ряд 3: Помощь
         [
             {
-                "action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "help"})},
+                "action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "помощь"})},
                 "color": "secondary"
             }
         ]
@@ -201,4 +271,3 @@ def get_payload_from_message(message: dict) -> Optional[dict]:
     except (json.JSONDecodeError, TypeError):
         pass
     return None
-

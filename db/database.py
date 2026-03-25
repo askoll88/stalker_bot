@@ -28,7 +28,7 @@ class Database:
 
             cur.execute("""CREATE TABLE IF NOT EXISTS items (
                 id VARCHAR(50) PRIMARY KEY, name VARCHAR(100),
-                description TEXT, icon VARCHAR(10), type VARCHAR(50),
+                description TEXT, icon VARCHAR(20), type VARCHAR(50),
                 price INTEGER DEFAULT 0, effect JSONB, stats JSONB)""")
 
             cur.execute("""CREATE TABLE IF NOT EXISTS player_inventory (
@@ -39,16 +39,17 @@ class Database:
 
     def init_items(self):
         items = [
-            ("medkit", "Medkit", "Restores 50 HP", "medkit", "consumable", 50, '{"health":50}', None),
-            ("bandage", "Bandage", "Restores 20 HP", "bandage", "consumable", 25, '{"health":20}', None),
-            ("energy_drink", "Energy Drink", "Reduces fatigue", "energy", "consumable", 30, '{"fatigue":-30}', None),
-            ("bread", "Bread", "Reduces fatigue", "bread", "food", 20, '{"fatigue":-20}', None),
-            ("water", "Water", "Water bottle", "water", "food", 10, '{"fatigue":-10}', None),
-            ("pm", "PM Pistol", "Makarov pistol", "pm", "weapon", 200, None, '{"damage":15}'),
-            ("ak74", "AK-74", "Kalashnikov", "ak74", "weapon", 500, None, '{"damage":35}'),
-            ("armor_vest", "Armor Vest", "Defense +30", "armor", "armor", 300, None, '{"defense":30}'),
-            ("ammo_9x18", "Ammo 9x18", "12 rounds", "ammo9", "ammo", 30, None, None),
-            ("ammo_5x45", "Ammo 5.45", "30 rounds", "ammo5", "ammo", 60, None, None),
+            ("medkit", "Аптечка", "Восстанавливает 50 HP", "medkit", "consumable", 50, '{"health":50}', None),
+            ("medkit_large", "Медицинская аптечка", "Восстанавливает 100 HP", "medkit_lg", "consumable", 50, '{"health":100}', None),
+            ("bandage", "Бинт", "Восстанавливает 20 HP", "bandage", "consumable", 25, '{"health":20}', None),
+            ("energy_drink", "Энергетик", "Снижает усталость", "energy", "consumable", 30, '{"fatigue":-30}', None),
+            ("bread", "Хлеб", "Снижает усталость", "bread", "food", 20, '{"fatigue":-20}', None),
+            ("water", "Вода", "Бутылка воды", "water", "food", 10, '{"fatigue":-10}', None),
+            ("pm", "ПМ", "Пистолет Макарова", "pm", "weapon", 200, None, '{"damage":15}'),
+            ("ak74", "АК-74", "Автомат Калашникова", "ak74", "weapon", 500, None, '{"damage":35}'),
+            ("armor_vest", "Бронежилет", "Защита +30", "armor", "armor", 300, None, '{"defense":30}'),
+            ("ammo_9x18", "Патроны 9x18", "12 штук", "ammo9", "ammo", 30, None, None),
+            ("ammo_5x45", "Патроны 5.45", "30 штук", "ammo5", "ammo", 60, None, None),
         ]
         for item in items:
             with self.conn.cursor() as cur:
@@ -97,8 +98,9 @@ class Database:
             if existing:
                 cur.execute("UPDATE player_inventory SET count=count+%s WHERE id=%s", (count, existing['id']))
             else:
-                cur.execute("SELECT COALESCE(MAX(slot_number),-1)+1 FROM player_inventory WHERE vk_id=%s", (vk_id,))
-                next_slot = cur.fetchone()[0]
+                cur.execute("SELECT COALESCE(MAX(slot_number),-1)+1 AS next_slot FROM player_inventory WHERE vk_id=%s", (vk_id,))
+                result = cur.fetchone()
+                next_slot = result['next_slot'] if result else 0
                 if next_slot >= 16:
                     return False
                 cur.execute("INSERT INTO player_inventory (vk_id,item_id,slot_number,count) VALUES (%s,%s,%s,%s)", (vk_id, item_id, next_slot, count))

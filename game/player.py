@@ -127,12 +127,8 @@ class Player:
         if new_location not in available:
             return False
 
-        # Проверяем, тратится ли усталость в этой локации
-        target_loc = get_location(new_location)
-        if target_loc and not target_loc.no_fatigue:
-            self.add_fatigue()
-
         db.update_player(self.vk_id, current_location=new_location)
+        self.add_fatigue()
         self.reload()
         return True
 
