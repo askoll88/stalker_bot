@@ -15,7 +15,7 @@ class Location:
 LOCATIONS = {
     "city": Location(
         name="🏙️ Город",
-        description="Заброшенный город-призрак. Руины зданий, ржавые машины, тишина...",
+        description="Заброшенный город-призрак. Руины зданий, ржавые машины, тишина...\n\n👴 Здесь живёт старожил — Старик. Может рассказать о городе и помочь с экипировкой.",
         connected_locations=["hospital", "shelter", "checkpoint"],
     ),
     "hospital": Location(

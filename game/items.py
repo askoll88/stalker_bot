@@ -126,6 +126,24 @@ ITEMS = {
         type="energy",
         value=50
     ),
+
+    # Стартовые предметы (выдаёт Старик)
+    "nagan": Item(
+        id="nagan",
+        name="🔫 Наган",
+        description="Старый револьвер. Надёжный, но слабый.",
+        price=0,
+        type="weapon",
+        value=5  # Урон
+    ),
+    "leather_jacket": Item(
+        id="leather_jacket",
+        name="🧥 Кожаная куртка",
+        description="Потрёпанная кожаная куртка. Лёгкая защита.",
+        price=0,
+        type="armor",
+        value=10  # Защита
+    ),
 }
 
 

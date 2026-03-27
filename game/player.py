@@ -1,4 +1,5 @@
 """Класс игрока и игровая логика"""
+import json
 from db.database import db
 from game.locations import (
     get_location_description, 
@@ -71,6 +72,14 @@ class Player:
         self.data["shop_category"] = value
 
     @property
+    def equipped_weapon(self) -> str:
+        return self.data.get("equipped_weapon")
+
+    @property
+    def equipped_armor(self) -> str:
+        return self.data.get("equipped_armor")
+
+    @property
     def exp_to_next_level(self) -> int:
         """Опыт до следующего уровня"""
         return EXP_TO_LEVEL * self.level - self.exp
@@ -134,6 +143,42 @@ class Player:
 
     def get_stats_text(self) -> str:
         """Получить текст статистики персонажа"""
+        # Получаем бонусы от экипировки
+        total_attack, total_defense = self.attack()
+        weapon_bonus = total_attack - INITIAL_ATTACK
+        armor_bonus = total_defense
+
+        # Формируем строку экипировки
+        equip_text = ""
+        if self.equipped_weapon:
+            from db.database import db
+            item = db.get_item(self.equipped_weapon)
+            if item:
+                stats = item.get('stats')
+                if stats:
+                    if isinstance(stats, str):
+                        stats = json.loads(stats)
+                    damage = stats.get('damage', 0)
+                else:
+                    damage = 0
+                equip_text += f"\n🔫 Оружие: {item['name']} (+{damage} урона)"
+
+        if self.equipped_armor:
+            from db.database import db
+            item = db.get_item(self.equipped_armor)
+            if item:
+                stats = item.get('stats')
+                if stats:
+                    if isinstance(stats, str):
+                        stats = json.loads(stats)
+                    defense = stats.get('defense', 0)
+                else:
+                    defense = 0
+                equip_text += f"\n🛡️ Броня: {item['name']} (+{defense} защиты)"
+
+        if not equip_text:
+            equip_text = "\n⚠️ Нет экипировки"
+
         return f"""📊 СТАТИСТИКА ПЕРСОНАЖА
 
 👤 Имя: {self.data['name']}
@@ -141,11 +186,14 @@ class Player:
 💰 Деньги: {self.money} руб.
 
 ❤️ Здоровье: {self.health}/{INITIAL_HEALTH}
-⚔️ Атака: {self.attack}
+⚔️ Атака: {total_attack} ({INITIAL_ATTACK} + {weapon_bonus}){weapon_bonus > 0 and f' от оружия' or ''}
+🛡️ Защита: {total_defense} ({armor_bonus} от брони)
 🔋 Усталость: {self.fatigue}/{MAX_FATIGUE}
 
 📈 Опыт: {self.exp}/{EXP_TO_LEVEL * self.level}
-⏳ До следующего уровня: {self.exp_to_next_level} XP"""
+⏳ До следующего уровня: {self.exp_to_next_level} XP
+
+🎒 ЭКИПИРОВКА:{equip_text}"""
 
     def get_location_text(self) -> str:
         """Получить текст текущей локации"""
@@ -155,6 +203,78 @@ class Player:
         moves_text = format_locations_list(available)
         
         return f"{desc}\n\n📍 Куда идти:\n{moves_text}"
+
+    def attack(self) -> tuple:
+        """Атаковать - вернуть урон и защиту"""
+        base_damage = INITIAL_ATTACK
+        base_defense = 0
+
+        # Базовый урон от оружия
+        weapon_damage = 0
+        if self.equipped_weapon:
+            from db.database import db
+            item = db.get_item(self.equipped_weapon)
+            if item and item.get('stats'):
+                stats = item['stats']
+                if isinstance(stats, str):
+                    stats = json.loads(stats)
+                weapon_damage = stats.get('damage', 0)
+
+        # Защита от брони
+        armor_defense = 0
+        if self.equipped_armor:
+            from db.database import db
+            item = db.get_item(self.equipped_armor)
+            if item and item.get('stats'):
+                stats = item['stats']
+                if isinstance(stats, str):
+                    stats = json.loads(stats)
+                armor_defense = stats.get('defense', 0)
+
+        total_damage = base_damage + weapon_damage
+        total_defense = base_defense + armor_defense
+
+        return total_damage, total_defense
+
+    def get_equipped_text(self) -> str:
+        """Получить текст об экипировке"""
+        text = "🎒 ЭКИПИРОВКА\n\n"
+
+        if self.equipped_weapon:
+            from db.database import db
+            item = db.get_item(self.equipped_weapon)
+            if item:
+                stats = item.get('stats')
+                if stats:
+                    if isinstance(stats, str):
+                        stats = json.loads(stats)
+                    damage = stats.get('damage', 0)
+                else:
+                    damage = 0
+                text += f"🔫 Оружие: {item['name']} (урон: {damage})\n"
+            else:
+                text += f"🔫 Оружие: {self.equipped_weapon}\n"
+        else:
+            text += "🔫 Оружие: нет\n"
+
+        if self.equipped_armor:
+            from db.database import db
+            item = db.get_item(self.equipped_armor)
+            if item:
+                stats = item.get('stats')
+                if stats:
+                    if isinstance(stats, str):
+                        stats = json.loads(stats)
+                    defense = stats.get('defense', 0)
+                else:
+                    defense = 0
+                text += f"🛡️ Броня: {item['name']} (защита: {defense})\n"
+            else:
+                text += f"🛡️ Броня: {self.equipped_armor}\n"
+        else:
+            text += "🛡️ Броня: нет\n"
+
+        return text
 
 
 def get_player(vk_id: int, name: str = None) -> Player:

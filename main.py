@@ -24,8 +24,14 @@ from game.locations import (
 def create_main_keyboard(shelter_unlocked=False):
     """Главная клавиатура"""
     keyboard = VkKeyboard(one_time=False)
-    keyboard.add_button("📊 Статистика", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_button("🎒 Инвентарь", color=VkKeyboardColor.PRIMARY)
+    # Кнопка Старика (для города)
+    keyboard.add_button("👴 Старик", color=VkKeyboardColor.SECONDARY,
+                       payload=json.dumps({"cmd": "npc", "npc": "old_man"}))
+    keyboard.add_line()
+    keyboard.add_button("📊 Статистика", color=VkKeyboardColor.PRIMARY,
+                       payload=json.dumps({"cmd": "статистика"}))
+    keyboard.add_button("🎒 Инвентарь", color=VkKeyboardColor.PRIMARY,
+                       payload=json.dumps({"cmd": "инвентарь"}))
     keyboard.add_line()
     keyboard.add_button("🏥 Больница", color=VkKeyboardColor.SECONDARY)
     keyboard.add_button("🛒 Черный рынок", color=VkKeyboardColor.SECONDARY)
@@ -296,6 +302,8 @@ def handle_player_action(vk, user_id, action):
         handle_buy_item(vk, user_id, player, "ammo_5x45", 30)
     elif action == "купить_броню":
         handle_buy_item(vk, user_id, player, "vest", 800)
+    elif action == "npc_old_man":
+        handle_npc_old_man(vk, user_id, player)
 
 
 def handle_heal(vk, user_id, player):
@@ -404,6 +412,49 @@ def handle_buy_item(vk, user_id, player, item_id, price):
     else:
         send_message(vk, user_id, "Не удалось купить предмет!",
                     keyboard=create_market_keyboard())
+
+
+def handle_npc_old_man(vk, user_id, player):
+    """Обработка взаимодействия со Стариком"""
+    if player['current_location'] != "city":
+        send_message(vk, user_id, "🚫 Старик только в Городе.",
+                    keyboard=create_main_keyboard(player['shelter_unlocked']))
+        return
+
+    # Проверяем, получал ли игрок стартовый набор (по наличию нагана)
+    inventory = db.get_inventory(user_id)
+    has_starter = any(item['item_id'] == 'nagan' for item in inventory)
+
+    npc_name = "👴 Старик"
+    npc_desc = "Пожилой человек в потрёпанной одежде. Живёт в этом городе давно."
+
+    if has_starter:
+        # Уже получал - показываем обычный диалог
+        dialogue = """А-а, ещё один сталкер... Я видел таких тысячи. Пришли за сокровищами Зоны, да?
+
+🏙️ Этот город — бывший Смерч. До катастрофы здесь жили тысячи людей. Теперь только руины и мутанты.
+
+⚠️ Советую держаться подальше от центра — там стая кровососов."""
+        msg = f"{npc_name}\n\n{npc_desc}\n\n{dialogue}"
+        send_message(vk, user_id, msg, keyboard=create_main_keyboard(player['shelter_unlocked']))
+    else:
+        # Выдаём стартовый набор
+        db.add_item(user_id, "nagan", 1)
+        db.add_item(user_id, "leather_jacket", 1)
+        db.update_player(user_id, money=player['money'] + 100)
+        player = db.get_player(user_id)
+
+        dialogue = """А, так ты новенький? Ну, раз пришёл ко мне — значит, судьба.
+
+🔫 Наган — старый, но стреляет. Пригодится.
+🧥 Куртка хоть и потрёпана, но от пуль защитит.
+
+💰 Держи ещё 100 рублей на первое время. Иди к КПП — там барыга торгует, можешь купить что получше.
+
+Удачи, сталкер. Она тебе понадобится."""
+
+        msg = f"{npc_name}\n\n{npc_desc}\n\n{dialogue}"
+        send_message(vk, user_id, msg, keyboard=create_main_keyboard(player['shelter_unlocked']))
 
 
 def move_to_location(vk, user_id, location_id):
@@ -523,6 +574,23 @@ def main():
                         player = db.get_player(user_id)
                         send_message(vk, user_id, "🛒 Чёрный рынок\n\n🚫 Временно закрыт на реконструкцию.\n\nСкоро здесь появится новый ассортимент товаров!",
                                     keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+                        continue
+                    elif cmd == "статистика":
+                        player = db.get_player(user_id)
+                        msg = get_stats_message(player)
+                        vk.messages.send(user_id=user_id, message=msg,
+                                        keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
+                                        random_id=random.randint(0, 2**31))
+                        continue
+                    elif cmd == "инвентарь":
+                        # Показываем инвентарь напрямую в чате
+                        from game.commands import handle_inventory
+                        from game.player import get_player
+                        player = get_player(user_id)
+                        msg, keyboard = handle_inventory(player)
+                        vk.messages.send(user_id=user_id, message=msg,
+                                        keyboard=keyboard,
+                                        random_id=random.randint(0, 2**31))
                         continue
                 except (json.JSONDecodeError, KeyError):
                     pass

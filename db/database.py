@@ -23,6 +23,8 @@ class Database:
                 level INTEGER DEFAULT 1, money INTEGER DEFAULT 100,
                 current_location VARCHAR(50) DEFAULT 'city',
                 shelter_unlocked BOOLEAN DEFAULT FALSE,
+                equipped_weapon VARCHAR(50) DEFAULT NULL,
+                equipped_armor VARCHAR(50) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
 
@@ -50,6 +52,8 @@ class Database:
             ("armor_vest", "Бронежилет", "Защита +30", "armor", "armor", 300, None, '{"defense":30}'),
             ("ammo_9x18", "Патроны 9x18", "12 штук", "ammo9", "ammo", 30, None, None),
             ("ammo_5x45", "Патроны 5.45", "30 штук", "ammo5", "ammo", 60, None, None),
+            ("nagan", "Наган", "Стартовый револьвер", "nagan", "weapon", 0, None, '{"damage":5}'),
+            ("leather_jacket", "Кожаная куртка", "Стартовая броня", "jacket", "armor", 0, None, '{"defense":10}'),
         ]
         for item in items:
             with self.conn.cursor() as cur:
@@ -113,6 +117,64 @@ class Database:
                 cur.execute("DELETE FROM player_inventory WHERE vk_id=%s AND item_id=%s AND count<=0", (vk_id, item_id))
                 return True
             return False
+
+    def equip_item(self, vk_id, item_id):
+        """Экипировать предмет (надеть)"""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Проверяем, есть ли предмет в инвентаре
+            cur.execute("SELECT * FROM player_inventory WHERE vk_id=%s AND item_id=%s AND count>0", (vk_id, item_id))
+            item_row = cur.fetchone()
+            if not item_row:
+                return False, "Предмет не найден в инвентаре"
+
+            # Получаем информацию о предмете
+            cur.execute("SELECT * FROM items WHERE id=%s", (item_id,))
+            item_info = cur.fetchone()
+            if not item_info:
+                return False, "Предмет не найден в базе"
+
+            item_type = item_info['type']
+
+            if item_type == "weapon":
+                # Снимаем текущее оружие
+                cur.execute("UPDATE player_inventory SET is_equipped=FALSE WHERE vk_id=%s AND item_id IN (SELECT id FROM items WHERE type='weapon')", (vk_id,))
+                # Надеваем новое
+                cur.execute("UPDATE player_inventory SET is_equipped=TRUE WHERE vk_id=%s AND item_id=%s", (vk_id, item_id))
+                # Обновляем поле в players
+                cur.execute("UPDATE players SET equipped_weapon=%s WHERE vk_id=%s", (item_id, vk_id))
+                return True, f"Надето оружие: {item_info['name']}"
+
+            elif item_type == "armor":
+                # Снимаем текущую броню
+                cur.execute("UPDATE player_inventory SET is_equipped=FALSE WHERE vk_id=%s AND item_id IN (SELECT id FROM items WHERE type='armor')", (vk_id,))
+                # Надеваем новую
+                cur.execute("UPDATE player_inventory SET is_equipped=TRUE WHERE vk_id=%s AND item_id=%s", (vk_id, item_id))
+                # Обновляем поле в players
+                cur.execute("UPDATE players SET equipped_armor=%s WHERE vk_id=%s", (item_id, vk_id))
+                return True, f"Надето: {item_info['name']}"
+
+            return False, "Предмет нельзя экипировать"
+
+    def unequip_item(self, vk_id, item_type: str):
+        """Снять экипированный предмет"""
+        with self.conn.cursor() as cur:
+            if item_type == "weapon":
+                cur.execute("UPDATE player_inventory SET is_equipped=FALSE WHERE vk_id=%s AND item_id IN (SELECT id FROM items WHERE type='weapon')", (vk_id,))
+                cur.execute("UPDATE players SET equipped_weapon=NULL WHERE vk_id=%s", (vk_id,))
+                return True, "Оружие снято"
+            elif item_type == "armor":
+                cur.execute("UPDATE player_inventory SET is_equipped=FALSE WHERE vk_id=%s AND item_id IN (SELECT id FROM items WHERE type='armor')", (vk_id,))
+                cur.execute("UPDATE players SET equipped_armor=NULL WHERE vk_id=%s", (vk_id,))
+                return True, "Броня снята"
+            return False, "Неизвестный тип"
+
+    def get_equipped_items(self, vk_id):
+        """Получить экипированные предметы игрока"""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""SELECT pi.*, i.name, i.type, i.stats FROM player_inventory pi
+                JOIN items i ON pi.item_id = i.id 
+                WHERE pi.vk_id = %s AND pi.is_equipped = TRUE""", (vk_id,))
+            return cur.fetchall()
 
 
 db = Database()

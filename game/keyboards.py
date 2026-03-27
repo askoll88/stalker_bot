@@ -184,6 +184,18 @@ def create_location_keyboard(current_location: str, shelter_unlocked: bool = Fal
         return create_main_keyboard()
 
     buttons = []
+
+    # Для города добавляем кнопку NPC Старик
+    if current_location == "city":
+        buttons.append([{
+            "action": {
+                "type": "text",
+                "label": "👴 Старик",
+                "payload": json.dumps({"cmd": "npc", "npc": "old_man"})
+            },
+            "color": "default"
+        }])
+
     for loc_id in available_moves:
         loc = get_location(loc_id)
         if loc:
