@@ -23,10 +23,13 @@ class Database:
                 level INTEGER DEFAULT 1, money INTEGER DEFAULT 100,
                 current_location VARCHAR(50) DEFAULT 'city',
                 shelter_unlocked BOOLEAN DEFAULT FALSE,
-                equipped_weapon VARCHAR(50) DEFAULT NULL,
-                equipped_armor VARCHAR(50) DEFAULT NULL,
+                shop_category VARCHAR(50) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+
+            # Добавляем колонки для экипировки, если их нет
+            cur.execute("""ALTER TABLE players ADD COLUMN IF NOT EXISTS equipped_weapon VARCHAR(50) DEFAULT NULL""")
+            cur.execute("""ALTER TABLE players ADD COLUMN IF NOT EXISTS equipped_armor VARCHAR(50) DEFAULT NULL""")
 
             cur.execute("""CREATE TABLE IF NOT EXISTS items (
                 id VARCHAR(50) PRIMARY KEY, name VARCHAR(100),

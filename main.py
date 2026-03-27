@@ -567,7 +567,7 @@ def main():
                         continue
                     elif cmd == "меню":
                         player = db.get_player(user_id)
-                        send_message(vk, user_id, "🏠 Главное меню\n\nВыбери действие:",
+                        send_message(vk, user_id, "🏙️ Город N\n\nВыбери действие:",
                                     keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
                         continue
                     elif cmd == "рынок_закрыт":
@@ -588,6 +588,27 @@ def main():
                         from game.player import get_player
                         player = get_player(user_id)
                         msg, keyboard = handle_inventory(player)
+                        vk.messages.send(user_id=user_id, message=msg,
+                                        keyboard=keyboard,
+                                        random_id=random.randint(0, 2**31))
+                        continue
+                    elif cmd == "надеть" and item:
+                        # Экипировать предмет
+                        from game.commands import handle_equip
+                        from game.player import get_player
+                        player = get_player(user_id)
+                        msg, keyboard = handle_equip(player, item)
+                        vk.messages.send(user_id=user_id, message=msg,
+                                        keyboard=keyboard,
+                                        random_id=random.randint(0, 2**31))
+                        continue
+                    elif cmd == "снять" and item:
+                        # Снять предмет (используем type для определения типа)
+                        item_type = payload_data.get('type', '')
+                        from game.commands import handle_unequip
+                        from game.player import get_player
+                        player = get_player(user_id)
+                        msg, keyboard = handle_unequip(player, item_type)
                         vk.messages.send(user_id=user_id, message=msg,
                                         keyboard=keyboard,
                                         random_id=random.randint(0, 2**31))

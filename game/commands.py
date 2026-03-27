@@ -101,7 +101,7 @@ def handle_payload(vk_id: int, payload: dict, name: str = None) -> tuple:
 
     if cmd in ("меню",):
         # Возврат в главное меню
-        return "🏠 Главное меню\n\nВыбери действие:", create_main_keyboard()
+        return "🏙️ Город N\n\nВыбери действие:", create_main_keyboard()
 
     if cmd in ("рынок_закрыт",):
         return "🛒 Чёрный рынок\n\n🚫 Временно закрыт на реконструкцию.\n\nСкоро здесь появится новый ассортимент товаров!", create_main_keyboard()
@@ -269,14 +269,16 @@ def handle_buy(player, item_id: str) -> tuple:
         return f"✅ Куплено: {item.name}!\n💰 Потрачено: {item.price} руб.\n\n⚠️ Радиация пока не активна.", create_checkpoint_keyboard() if player.current_location == "checkpoint" else create_hospital_keyboard()
 
     elif item.type == "weapon":
+        db.add_item(player.vk_id, item.id, 1)
         db.update_player(player.vk_id, money=player.money - item.price)
         player.reload()
         return f"✅ Куплено: {item.name}!\n⚔️ Урон: {item.value}\n💰 Потрачено: {item.price} руб.\n\nДобавлено в инвентарь!", create_checkpoint_keyboard()
 
     elif item.type == "armor":
+        db.add_item(player.vk_id, item.id, 1)
         db.update_player(player.vk_id, money=player.money - item.price)
         player.reload()
-        return f"✅ Куплено: {item.name}!\n🛡️ Защита: {item.value}\n💰 Потрачено: {item.price} руб.\n\nНадето!", create_checkpoint_keyboard()
+        return f"✅ Куплено: {item.name}!\n🛡️ Защита: {item.value}\n💰 Потрачено: {item.price} руб.\n\nДобавлено в инвентарь!", create_checkpoint_keyboard()
 
     elif item.type == "energy":
         if player.fatigue <= 0:
