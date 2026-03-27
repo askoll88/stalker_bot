@@ -79,15 +79,20 @@ def create_location_keyboard(current_location, shelter_unlocked=False, old_man_m
         keyboard.add_line()
 
         # Локации
-        keyboard.add_button("🏥 Больница", color=VkKeyboardColor.SECONDARY)
-        keyboard.add_button("🛒 Черный рынок", color=VkKeyboardColor.SECONDARY)
-        keyboard.add_button("🚧 КПП", color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button("🏥 Больница", color=VkKeyboardColor.SECONDARY,
+                           payload=json.dumps({"cmd": "идти", "loc": "hospital"}))
+        keyboard.add_button("🛒 Черный рынок", color=VkKeyboardColor.SECONDARY,
+                           payload=json.dumps({"cmd": "рынок_закрыт"}))
         keyboard.add_line()
 
         if shelter_unlocked:
-            keyboard.add_button("🔓 Убежище", color=VkKeyboardColor.POSITIVE)
+            keyboard.add_button("🔓 Убежище", color=VkKeyboardColor.POSITIVE,
+                               payload=json.dumps({"cmd": "идти", "loc": "shelter"}))
         else:
             keyboard.add_button("🔒 Убежище", color=VkKeyboardColor.NEGATIVE)
+
+        keyboard.add_button("🔙 В город", color=VkKeyboardColor.NEGATIVE,
+                           payload=json.dumps({"cmd": "меню"}))
 
         return keyboard
 

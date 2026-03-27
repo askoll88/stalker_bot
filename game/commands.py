@@ -555,7 +555,7 @@ def handle_inventory(player) -> tuple:
 
     # Кнопка назад - возвращает в город
     buttons.append([
-        {"action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "меню"})}, "color": "secondary"}
+        {"action": {"type": "text", "label": "🔙 В город", "payload": json.dumps({"cmd": "меню"})}, "color": "secondary"}
     ])
 
     keyboard = create_keyboard(buttons)
