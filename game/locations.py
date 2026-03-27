@@ -10,6 +10,7 @@ class Location:
     connected_locations: list[str]
     required_level: int = 1
     shelter_unlocked: bool = False
+    image_id: Optional[str] = None  # photo_id для VK вложения
 
 
 LOCATIONS = {
@@ -82,3 +83,16 @@ def format_locations_list(locations: list[str]) -> str:
             result.append(f"• {loc.name}")
 
     return "\n".join(result)
+
+
+def load_images_from_db():
+    """Загрузить изображения локаций из БД"""
+    from db.database import db
+    from game.media import get_image
+
+    for loc_id in LOCATIONS:
+        photo_id = get_image('location', loc_id)
+        if photo_id:
+            LOCATIONS[loc_id].image_id = photo_id
+            print(f"✅ Загружено изображение для {loc_id}: {photo_id}")
+

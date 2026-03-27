@@ -5,6 +5,7 @@ import random
 import json
 import sys
 import os
+import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -17,7 +18,21 @@ from game.locations import (
     get_location_description,
     get_available_moves,
     format_locations_list,
-    get_location
+    get_location,
+    load_images_from_db as load_loc_images
+)
+from game.npc import (
+    get_npc,
+    load_images_from_db as load_npc_images
+)
+from game.media import (
+    get_attachment,
+    get_image,
+    get_image_path,
+    upload_photo_to_vk,
+    set_image,
+    save_uploaded_photo,
+    list_available_images
 )
 
 
@@ -44,10 +59,41 @@ def create_main_keyboard(shelter_unlocked=False):
     return keyboard
 
 
-def create_location_keyboard(current_location, shelter_unlocked=False):
-    """Клавиатура перемещения"""
+def create_location_keyboard(current_location, shelter_unlocked=False, old_man_met=False):
+    """Клавиатура перемещения и главного меню для города"""
     keyboard = VkKeyboard(one_time=False)
+
+    # Для города показываем полное меню
+    if current_location == "city":
+        # Кнопка Старика (если ещё не получал набор)
+        if not old_man_met:
+            keyboard.add_button("👴 Старик", color=VkKeyboardColor.SECONDARY,
+                               payload=json.dumps({"cmd": "npc", "npc": "old_man"}))
+            keyboard.add_line()
+
+        # Основные команды
+        keyboard.add_button("📊 Статистика", color=VkKeyboardColor.PRIMARY,
+                           payload=json.dumps({"cmd": "статистика"}))
+        keyboard.add_button("🎒 Инвентарь", color=VkKeyboardColor.PRIMARY,
+                           payload=json.dumps({"cmd": "инвентарь"}))
+        keyboard.add_line()
+
+        # Локации
+        keyboard.add_button("🏥 Больница", color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button("🛒 Черный рынок", color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button("🚧 КПП", color=VkKeyboardColor.SECONDARY)
+        keyboard.add_line()
+
+        if shelter_unlocked:
+            keyboard.add_button("🔓 Убежище", color=VkKeyboardColor.POSITIVE)
+        else:
+            keyboard.add_button("🔒 Убежище", color=VkKeyboardColor.NEGATIVE)
+
+        return keyboard
+
+    # Для других локаций - только кнопки перемещения
     available = get_available_moves(current_location, shelter_unlocked)
+
     for i, loc_id in enumerate(available):
         loc = get_location(loc_id)
         if loc:
@@ -228,8 +274,16 @@ def get_stats_message(player):
 🔐 Убежище: {'Открыто' if player['shelter_unlocked'] else 'Закрыто'}"""
 
 
-def send_message(vk, user_id, message, keyboard=None):
-    """Отправить сообщение"""
+def send_message(vk, user_id, message, keyboard=None, attachment=None):
+    """Отправить сообщение с возможностью прикрепления файлов
+
+    Args:
+        vk: объект VK API
+        user_id: ID пользователя
+        message: текст сообщения
+        keyboard: клавиатура (опционально)
+        attachment: строка вложения, напр. "photo123_456" (опционально)
+    """
     kwargs = {"user_id": user_id, "message": message, "random_id": random.randint(0, 2**31)}
     if keyboard:
         # Принимает как объект клавиатуры, так и готовую строку
@@ -237,6 +291,8 @@ def send_message(vk, user_id, message, keyboard=None):
             kwargs["keyboard"] = keyboard.get_keyboard()
         else:
             kwargs["keyboard"] = keyboard
+    if attachment:
+        kwargs["attachment"] = attachment
     vk.messages.send(**kwargs)
 
 
@@ -272,9 +328,21 @@ def handle_player_action(vk, user_id, action):
         loc_desc = get_location_description(player['current_location'], player['shelter_unlocked'])
         available = get_available_moves(player['current_location'], player['shelter_unlocked'])
         msg = f"{loc_desc}\n\n📍 Куда идти:\n\n{format_locations_list(available)}"
-        vk.messages.send(user_id=user_id, message=msg,
-                        keyboard=create_location_keyboard(player['current_location'], player['shelter_unlocked']).get_keyboard(),
-                        random_id=random.randint(0, 2**31))
+
+        # Получаем изображение локации
+        loc = get_location(player['current_location'])
+        attachment = None
+        if loc and loc.image_id:
+            attachment = f"photo{loc.image_id}"
+
+        # Проверяем, говорил ли уже со Стариком
+        from db.database import db as main_db
+        inventory = main_db.get_inventory(user_id)
+        old_man_met = any(item['item_id'] == 'nagan' for item in inventory)
+
+        send_message(vk, user_id, msg,
+                    keyboard=create_location_keyboard(player['current_location'], player['shelter_unlocked'], old_man_met).get_keyboard(),
+                    attachment=attachment)
 
     elif action == "больница":
         move_to_location(vk, user_id, "hospital")
@@ -428,6 +496,13 @@ def handle_npc_old_man(vk, user_id, player):
     npc_name = "👴 Старик"
     npc_desc = "Пожилой человек в потрёпанной одежде. Живёт в этом городе давно."
 
+    # Получаем изображение NPC
+    from game.npc import get_npc
+    npc = get_npc("old_man")
+    attachment = None
+    if npc and npc.image_id:
+        attachment = f"photo{npc.image_id}"
+
     if has_starter:
         # Уже получал - показываем обычный диалог
         dialogue = """А-а, ещё один сталкер... Я видел таких тысячи. Пришли за сокровищами Зоны, да?
@@ -436,7 +511,9 @@ def handle_npc_old_man(vk, user_id, player):
 
 ⚠️ Советую держаться подальше от центра — там стая кровососов."""
         msg = f"{npc_name}\n\n{npc_desc}\n\n{dialogue}"
-        send_message(vk, user_id, msg, keyboard=create_main_keyboard(player['shelter_unlocked']))
+        # Используем create_location_keyboard с old_man_met=True, чтобы скрыть кнопку
+        keyboard = create_location_keyboard("city", player['shelter_unlocked'], old_man_met=True).get_keyboard()
+        send_message(vk, user_id, msg, keyboard=keyboard, attachment=attachment)
     else:
         # Выдаём стартовый набор
         db.add_item(user_id, "nagan", 1)
@@ -454,7 +531,9 @@ def handle_npc_old_man(vk, user_id, player):
 Удачи, сталкер. Она тебе понадобится."""
 
         msg = f"{npc_name}\n\n{npc_desc}\n\n{dialogue}"
-        send_message(vk, user_id, msg, keyboard=create_main_keyboard(player['shelter_unlocked']))
+        # После получения набора - кнопка Старика больше не показывается
+        keyboard = create_location_keyboard("city", player['shelter_unlocked'], old_man_met=True).get_keyboard()
+        send_message(vk, user_id, msg, keyboard=keyboard, attachment=attachment)
 
 
 def move_to_location(vk, user_id, location_id):
@@ -485,7 +564,10 @@ def move_to_location(vk, user_id, location_id):
 
     keyboard = None
     if location_id == "city":
-        keyboard = create_main_keyboard(player['shelter_unlocked'])
+        # Проверяем, говорил ли уже со Стариком
+        inventory = db.get_inventory(user_id)
+        old_man_met = any(item['item_id'] == 'nagan' for item in inventory)
+        keyboard = create_location_keyboard(location_id, player['shelter_unlocked'], old_man_met)
     elif location_id == "hospital":
         keyboard = create_hospital_keyboard()
     elif location_id == "market":
@@ -495,16 +577,38 @@ def move_to_location(vk, user_id, location_id):
     elif location_id == "checkpoint":
         keyboard = create_checkpoint_keyboard()
     else:
-        keyboard = create_location_keyboard(location_id, player['shelter_unlocked'])
+        # Проверяем, говорил ли уже со Стариком
+        inventory = db.get_inventory(user_id)
+        old_man_met = any(item['item_id'] == 'nagan' for item in inventory)
+        keyboard = create_location_keyboard(location_id, player['shelter_unlocked'], old_man_met)
+
+    # Получаем изображение локации
+    loc = get_location(location_id)
+    attachment = None
+    if loc and loc.image_id:
+        attachment = f"photo{loc.image_id}"
+        print(f"📷 Прикрепляю изображение к локации {location_id}: {attachment}")
+    else:
+        print(f"📷 Нет изображения для локации {location_id}")
 
     msg = f"{loc_desc}\n\n🔋 Усталость: {new_fatigue}/{MAX_FATIGUE}"
-    vk.messages.send(user_id=user_id, message=msg,
-                    keyboard=keyboard.get_keyboard(),
-                    random_id=random.randint(0, 2**31))
+    send_message(vk, user_id, msg, keyboard=keyboard, attachment=attachment)
 
 
 def main():
     print("Запуск S.T.A.L.K.E.R. бота...")
+
+    # Загружаем изображения из БД
+    print("Проверка БД...")
+    # Проверяем, есть ли данные в БД
+    all_media = db.get_all_media()
+    print(f"Найдено изображений в БД: {len(all_media)}")
+    for m in all_media:
+        print(f"  - {m['type']}/{m['object_id']}: {m.get('photo_id')}")
+
+    load_loc_images()
+    load_npc_images()
+    print("📷 Изображения загружены из БД")
 
     vk_session = vk_api.VkApi(token=VK_TOKEN)
     vk = vk_session.get_api()
@@ -567,8 +671,18 @@ def main():
                         continue
                     elif cmd == "меню":
                         player = db.get_player(user_id)
+                        # Обновляем локацию в БД
+                        db.update_player(user_id, current_location="city")
+                        player = db.get_player(user_id)
+                        # Проверяем, говорил ли уже со Стариком
+                        inventory = db.get_inventory(user_id)
+                        old_man_met = any(item['item_id'] == 'nagan' for item in inventory)
+                        # Получаем изображение города
+                        attachment = get_attachment('location', 'city')
+                        print(f"📷 Отправляю меню с attachment: {attachment}")
                         send_message(vk, user_id, "🏙️ Город N\n\nВыбери действие:",
-                                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard())
+                                    keyboard=create_location_keyboard("city", player['shelter_unlocked'], old_man_met).get_keyboard(),
+                                    attachment=attachment)
                         continue
                     elif cmd == "рынок_закрыт":
                         player = db.get_player(user_id)
@@ -625,16 +739,51 @@ def main():
             if text == '/start' or text == 'start' or text == 'начать':
                 if not db.player_exists(user_id):
                     db.create_player(user_id, user_name)
-                    welcome_msg = "🌍 ДОБРО ПОЖАЛОВАТЬ В ЗОНУ, СТАЛКЕР!\n\nТы прибыл в заброшенный город. Твоё приключение начинается здесь.\n\nТы находишься в Городе.\nУбежище заперто — найди способ попасть внутрь.\n\nИспользуй кнопки для навигации!"
-                    vk.messages.send(user_id=user_id, message=welcome_msg,
-                                    keyboard=create_main_keyboard(False).get_keyboard(),
-                                    random_id=random.randint(0, 2**31))
+
+                    # История города при старте
+                    lore_text = """🏙️ ГОРОД N
+История забытого места
+
+Город был основан в 19.. году как опорный пункт для строительства крупной электростанции. Рядом выросли военная часть и НИИ — закрытое научное учреждение, о котором ходили слухи, но мало кто знал, чем там занимаются.
+
+К 1986 году город процветал. 15 тысяч жителей, школы, больница, Дом культуры. По вечерам на центральной площади играла музыка, а на стадионе собирались футбольные матчи.
+
+Всё изменилось 26 апреля 1986 года.
+
+На электростанции произошла авария — официально никто не знает, что именно. Выброс был колоссальным. Одни говорят — реактор вышел из-под контроля. Другие — что в подземных туннелях НИИ проводили эксперименты, которые не должны были увидеть свет.
+
+Город пал за одну ночь.
+
+К 2026 году от прежней жизни остались только руины. Официально — зона отчуждения. Неофициально — сталкеры называют это место Городом N и обходят стороной.
+
+Но слухи ходят:
+• В подвалах НИИ до сих пор работает оборудование
+• На электростанции видели странное свечение по ночам
+• Военная часть охраняется, хотя охраны там давно нет
+
+Кто-то ищет артефакты. Кто-то — правду. Кто-то просто не может уехать.
+
+---
+
+Ты очнулся на окраине города. Голова гудит, в кармане только ржавый ПМ и немного денег.
+
+Твоё убежище заперто. Нужно найти способ попасть внутрь...
+
+📍 Ты находишься в: Город"""
+
+                    # Получаем изображение города
+                    attachment = get_attachment('location', 'city')
+
+                    send_message(vk, user_id, lore_text,
+                                keyboard=create_main_keyboard(False).get_keyboard(),
+                                attachment=attachment)
                 else:
                     player = db.get_player(user_id)
-                    vk.messages.send(user_id=user_id,
-                                    message=f"С возвращением, сталкер {player['name']}! Ты в: {get_location(player['current_location']).name}",
-                                    keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
-                                    random_id=random.randint(0, 2**31))
+                    attachment = get_attachment('location', player['current_location'])
+                    send_message(vk, user_id,
+                                f"С возвращением, сталкер {player['name']}! Ты в: {get_location(player['current_location']).name}",
+                                keyboard=create_main_keyboard(player['shelter_unlocked']).get_keyboard(),
+                                attachment=attachment)
 
             elif text == "локация":
                 handle_player_action(vk, user_id, "локация")
@@ -672,6 +821,146 @@ def main():
                 help_msg = "📋 КОМАНДЫ:\n/start - Начать игру\n/статистика - Твоя статистика\n/инвентарь - Открыть инвентарь"
                 vk.messages.send(user_id=user_id, message=help_msg,
                                 random_id=random.randint(0, 2**31))
+
+            # Команды для работы с изображениями (для админа)
+            elif text.startswith('/setimage '):
+                # Формат: /setimage location city или /setimage npc old_man
+                # После команды должно быть прикреплено фото
+                parts = text.split()
+                if len(parts) >= 3:
+                    type_ = parts[1]  # location или npc
+                    id_ = parts[2]
+                    msg = ""  # Инициализируем msg
+
+                    # Проверяем есть ли фото в сообщении
+                    attachments = event.obj.message.get('attachments', [])
+                    if attachments and attachments[0].get('type') == 'photo':
+                        photo = attachments[0]['photo']
+                        # Получаем максимальный размер фото
+                        max_photo = max(photo.get('sizes', []), key=lambda x: x.get('width', 0), default=None)
+                        if max_photo:
+                            # Скачиваем фото
+                            photo_url = max_photo.get('url', '')
+                            if photo_url:
+                                try:
+                                    resp = requests.get(photo_url)
+                                    if resp.status_code == 200:
+                                        # Сохраняем локально (резервная копия)
+                                        save_uploaded_photo(resp.content, type_, id_)
+
+                                        # Загружаем на VK сервер
+                                        path = get_image_path(type_, id_)
+                                        photo_id = upload_photo_to_vk(vk_session, path)
+
+                                        if photo_id:
+                                            # Сохраняем в БД
+                                            set_image(type_, id_, photo_id, resp.content)
+
+                                            # Обновляем в словаре
+                                            if type_ == 'location':
+                                                loc = get_location(id_)
+                                                if loc:
+                                                    loc.image_id = photo_id
+                                                    msg = f"✅ Изображение для локации '{id_}' сохранено в БД!"
+                                            elif type_ == 'npc':
+                                                npc = get_npc(id_)
+                                                if npc:
+                                                    npc.image_id = photo_id
+                                                    msg = f"✅ Изображение для NPC '{id_}' сохранено в БД!"
+                                            else:
+                                                msg = "❌ Неизвестный тип. Используй: location или npc"
+                                        else:
+                                            msg = "❌ Ошибка загрузки фото на сервер VK"
+                                    else:
+                                        msg = "❌ Не удалось скачать фото"
+                                except Exception as e:
+                                    msg = f"❌ Ошибка: {e}"
+                            else:
+                                msg = "❌ Не удалось получить URL фото"
+                        else:
+                            msg = "❌ Фото слишком маленькое"
+                    else:
+                        msg = "❌ Прикрепи фото к сообщению!\n\nФормат: /setimage <тип> <id>\nПример: /setimage location city (и прикрепи фото)"
+                else:
+                    msg = "📷 УСТАНОВИТЬ ИЗОБРАЖЕНИЕ\n\nСпособы загрузки:\n\n1️⃣ С прикреплённым фото:\n/setimage location city (и прикрепи фото)\n\n2️⃣ По URL:\n/setimage location city https://example.com/image.jpg\n\nТипы: location, npc\n\nЛокации: city, hospital, market, shelter, checkpoint\nNPC: old_man, scientist, military, dealer"
+                send_message(vk, user_id, msg)
+
+            # Команда для загрузки по URL
+            elif text.startswith('/setimage_url '):
+                # Формат: /setimage_url location city https://...
+                parts = text.split(maxsplit=2)
+                if len(parts) >= 3:
+                    type_ = parts[1]
+                    id_ = parts[2]
+                    url = parts[2]
+
+                    msg = ""  # Инициализируем msg
+
+                    try:
+                        resp = requests.get(url)
+                        if resp.status_code == 200:
+                            content_type = resp.headers.get('content-type', '')
+                            if 'image' in content_type:
+                                # Определяем расширение
+                                ext = 'jpg'
+                                if 'png' in content_type:
+                                    ext = 'png'
+                                elif 'gif' in content_type:
+                                    ext = 'gif'
+
+                                # Сохраняем во временный файл
+                                path = get_image_path(type_, id_).rsplit('.', 1)[0] + '.' + ext
+                                with open(path, 'wb') as f:
+                                    f.write(resp.content)
+
+                                # Загружаем на VK
+                                photo_id = upload_photo_to_vk(vk_session, path)
+
+                                if photo_id:
+                                    set_image(type_, id_, photo_id, resp.content)
+
+                                    # Обновляем в словаре
+                                    if type_ == 'location':
+                                        loc = get_location(id_)
+                                        if loc:
+                                            loc.image_id = photo_id
+                                    elif type_ == 'npc':
+                                        npc = get_npc(id_)
+                                        if npc:
+                                            npc.image_id = photo_id
+
+                                    msg = f"✅ Изображение загружено и сохранено в БД!\nphoto_id: {photo_id}"
+                                else:
+                                    msg = "❌ Ошибка загрузки на VK"
+                            else:
+                                msg = "❌ Ссылка не ведёт на изображение"
+                        else:
+                            msg = f"❌ Ошибка скачивания: {resp.status_code}"
+                    except Exception as e:
+                        msg = f"❌ Ошибка: {e}"
+                else:
+                    msg = "📷 ЗАГРУЗКА ПО URL\n\n/setimage_url <тип> <id> <url>\n\nПример:\n/setimage_url location city https://example.com/img.jpg"
+                send_message(vk, user_id, msg)
+
+            elif text == '/images':
+                # Показать список доступных изображений
+                msg = "🖼️ ИЗОБРАЖЕНИЯ\n\n"
+
+                msg += "📍 ЛОКАЦИИ:\n"
+                for loc_id in ["city", "hospital", "market", "shelter", "checkpoint"]:
+                    loc = get_location(loc_id)
+                    if loc:
+                        status = "✅" if loc.image_id else "❌"
+                        msg += f"  {status} {loc_id}: {loc.name}\n"
+
+                msg += "\n👤 NPC:\n"
+                for npc_id in ["old_man", "scientist", "military", "dealer"]:
+                    npc = get_npc(npc_id)
+                    if npc:
+                        status = "✅" if npc.image_id else "❌"
+                        msg += f"  {status} {npc_id}: {npc.name}\n"
+
+                send_message(vk, user_id, msg)
 
 
 if __name__ == '__main__':

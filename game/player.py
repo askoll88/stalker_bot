@@ -141,6 +141,11 @@ class Player:
         self.reload()
         return True
 
+    def set_location(self, new_location: str) -> None:
+        """Установить локацию без проверок и без затрат усталости (для кнопки 'В город')"""
+        db.update_player(self.vk_id, current_location=new_location)
+        self.reload()
+
     def get_stats_text(self) -> str:
         """Получить текст статистики персонажа"""
         # Получаем бонусы от экипировки

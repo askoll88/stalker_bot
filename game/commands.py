@@ -7,11 +7,18 @@ from game.keyboards import (
     create_main_keyboard, create_location_keyboard,
     create_hospital_keyboard, create_checkpoint_keyboard,
     create_checkpoint_shop_keyboard,
-    get_payload, create_keyboard
+    get_payload, create_keyboard, create_inventory_keyboard
 )
 from game.items import ITEMS, get_item, get_items_by_type
 from game.npc import NPCS, get_npc
 from config import INITIAL_HEALTH, HEAL_COST, MAX_FATIGUE, FATIGUE_PER_ACTION
+from db.database import db
+
+
+def has_starter_pack(vk_id: int) -> bool:
+    """Проверить, получал ли игрок стартовый набор от Старика"""
+    inventory = db.get_inventory(vk_id)
+    return any(item['item_id'] == 'nagan' for item in inventory)
 
 
 def handle_command(vk_id: int, command: str, name: str = None, payload: dict = None) -> tuple:
@@ -100,7 +107,8 @@ def handle_payload(vk_id: int, payload: dict, name: str = None) -> tuple:
             return handle_unequip(player, item_type)
 
     if cmd in ("меню",):
-        # Возврат в главное меню
+        # Возврат в главное меню - обновляем локацию в БД без проверок
+        player.set_location("city")
         return "🏙️ Город N\n\nВыбери действие:", create_main_keyboard()
 
     if cmd in ("рынок_закрыт",):
@@ -124,6 +132,21 @@ def handle_payload(vk_id: int, payload: dict, name: str = None) -> tuple:
     if cmd in ("назад_кпп",):
         return "🚧 КПП\n\nТы на контрольно-пропускном пункте.", create_checkpoint_keyboard()
 
+    if cmd in ("вернуть_локацию",):
+        # Возвращаем игрока в его текущую локацию
+        current_loc = player.current_location
+        if current_loc == "hospital":
+            return "🏥 Больница\n\nТы в больнице.", create_hospital_keyboard()
+        elif current_loc == "checkpoint":
+            return "🚧 КПП\n\nТы на контрольно-пропускном пункте.", create_checkpoint_keyboard()
+        elif current_loc == "shelter":
+            return "🏠 Убежище\n\nТы в своём убежище.", create_location_keyboard(current_loc, player.shelter_unlocked)
+        elif current_loc == "city":
+            old_man_met = has_starter_pack(player.vk_id)
+            return "🏙️ Город N\n\nВыбери действие:", create_location_keyboard(current_loc, player.shelter_unlocked, old_man_met)
+        else:
+            return "🏙️ Город N\n\nВыбери действие:", create_main_keyboard()
+
     if cmd in ("магазин_кпп",):
         return "🛒 МАГАЗИН - КПП\n\nВыбери товары:", create_checkpoint_shop_keyboard()
 
@@ -137,16 +160,42 @@ def handle_payload(vk_id: int, payload: dict, name: str = None) -> tuple:
 
 def handle_start(player) -> tuple:
     """Обработать начало игры"""
-    text = f"""🚪 ДОБРО ПОЖАЛОВАТЬ В ЗОНУ, СТАЛКЕР!
+    # История города
+    lore_text = """🏙️ ГОРОД N
+История забытого места
 
-Ты очнулся на окраине заброшенного города. Голова гудит, в кармане только ржавый ПМ и немного денег.
+Город был основан в 19.. году как опорный пункт для строительства крупной электростанции. Рядом выросли военная часть и НИИ — закрытое научное учреждение, о котором ходили слухи, но мало кто знал, чем там занимаются.
+
+К 1986 году город процветал. 15 тысяч жителей, школы, больница, Дом культуры. По вечерам на центральной площади играла музыка, а на стадионе собирались футбольные матчи.
+
+Всё изменилось 26 апреля 1986 года.
+
+На электростанции произошла авария — официально никто не знает, что именно. Выброс был колоссальным. Одни говорят — реактор вышел из-под контроля. Другие — что в подземных туннелях НИИ проводили эксперименты, которые не должны были увидеть свет.
+
+Город пал за одну ночь.
+
+К 2026 году от прежней жизни остались только руины. Официально — зона отчуждения. Неофициально — сталкеры называют это место Городом N и обходят стороной.
+
+Но слухи ходят:
+• В подвалах НИИ до сих пор работает оборудование
+• На электростанции видели странное свечение по ночам
+• Военная часть охраняется, хотя охраны там давно нет
+
+Кто-то ищет артефакты. Кто-то — правду. Кто-то просто не может уехать.
+
+---
+
+Ты очнулся на окраине города. Голова гудит, в кармане только ржавый ПМ и немного денег.
 
 Твоё убежище заперто. Нужно найти способ попасть внутрь...
 
-📍 Ты находишься в: Город
+📍 Ты находишься в: Город"""
 
-Используй кнопки внизу для навигации!"""
-    return text, create_main_keyboard()
+    # Получаем изображение города
+    from game.media import get_attachment
+    attachment = get_attachment('location', 'city')
+
+    return lore_text, create_main_keyboard(), attachment
 
 
 def handle_help() -> tuple:
@@ -188,9 +237,10 @@ def handle_go(player, location_key: str) -> tuple:
     }
 
     target = location_map.get(location_key.lower())
+    old_man_met = has_starter_pack(player.vk_id)
     if not target:
         return "❓ Неизвестная локация. Нажми кнопку 'Локации' для выбора.", create_location_keyboard(
-            player.current_location, player.shelter_unlocked
+            player.current_location, player.shelter_unlocked, old_man_met
         )
 
     # Проверка доступности локации
@@ -198,7 +248,7 @@ def handle_go(player, location_key: str) -> tuple:
     
     if target not in available:
         return "🚫 Ты не можешь туда попасть. Выбери доступную локацию.", create_location_keyboard(
-            player.current_location, player.shelter_unlocked
+            player.current_location, player.shelter_unlocked, old_man_met
         )
 
     # Проверка усталости (только если локация не имеет флага no_fatigue)
@@ -206,7 +256,7 @@ def handle_go(player, location_key: str) -> tuple:
     if target_loc and not target_loc.no_fatigue:
         if player.fatigue >= MAX_FATIGUE:
             return "😴 Ты слишком устал! Отдохни в убежище или больнице.", create_location_keyboard(
-                player.current_location, player.shelter_unlocked
+                player.current_location, player.shelter_unlocked, old_man_met
             )
 
     # Перемещение
@@ -226,12 +276,14 @@ def handle_go(player, location_key: str) -> tuple:
         elif target == "checkpoint":
             keyboard = create_checkpoint_keyboard()
         else:
-            keyboard = create_location_keyboard(target, player.shelter_unlocked)
+            # Для города - проверить, говорил ли уже со Стариком
+            old_man_met = has_starter_pack(player.vk_id)
+            keyboard = create_location_keyboard(target, player.shelter_unlocked, old_man_met)
 
         return text, keyboard
 
     return "❌ Не удалось переместиться.", create_location_keyboard(
-        player.current_location, player.shelter_unlocked
+        player.current_location, player.shelter_unlocked, old_man_met
     )
 
 
@@ -357,14 +409,12 @@ def handle_npc(player, npc_id: str) -> tuple:
             return "❓ Такого NPC нет.", create_main_keyboard()
 
         # Проверяем, получал ли игрок стартовый набор (по наличию нагана)
-        from db.database import db
-        inventory = db.get_inventory(player.vk_id)
-        has_starter = any(item['item_id'] == 'nagan' for item in inventory)
+        old_man_met = has_starter_pack(player.vk_id)
 
-        if has_starter:
+        if old_man_met:
             # Уже получал - показываем обычный диалог
             text = f"{npc.name}\n\n{npc.description}\n\n{npc.dialogue['default']}"
-            return text, create_location_keyboard(player.current_location, player.shelter_unlocked)
+            return text, create_location_keyboard(player.current_location, player.shelter_unlocked, old_man_met)
         else:
             # Выдаём стартовый набор
             db.add_item(player.vk_id, "nagan", 1)
@@ -373,7 +423,8 @@ def handle_npc(player, npc_id: str) -> tuple:
             player.reload()
 
             text = f"{npc.name}\n\n{npc.description}\n\n{npc.dialogue['start']}"
-            keyboard = create_location_keyboard(player.current_location, player.shelter_unlocked)
+            # После получения набора - кнопка Старика больше не показывается
+            keyboard = create_location_keyboard(player.current_location, player.shelter_unlocked, old_man_met=True)
             return text, keyboard
 
     # Остальные NPC - только на КПП
@@ -502,7 +553,7 @@ def handle_inventory(player) -> tuple:
             })
         buttons.append(armor_buttons)
 
-    # Кнопка назад
+    # Кнопка назад - возвращает в город
     buttons.append([
         {"action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "меню"})}, "color": "secondary"}
     ])

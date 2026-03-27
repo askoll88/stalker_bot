@@ -42,6 +42,16 @@ class Database:
                 slot_number INTEGER DEFAULT 0, count INTEGER DEFAULT 1,
                 is_equipped BOOLEAN DEFAULT FALSE)""")
 
+            # Таблица для хранения изображений локаций и NPC
+            cur.execute("""CREATE TABLE IF NOT EXISTS media (
+                id SERIAL PRIMARY KEY,
+                type VARCHAR(20) NOT NULL,  -- 'location' или 'npc'
+                object_id VARCHAR(50) NOT NULL,  -- id локации или NPC
+                photo_id VARCHAR(100),  -- VK photo_id (формат: owner_photo_id)
+                image_data BYTEA,  -- бинарные данные изображения (опционально)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(type, object_id))""")
+
     def init_items(self):
         items = [
             ("medkit", "Аптечка", "Восстанавливает 50 HP", "medkit", "consumable", 50, '{"health":50}', None),
@@ -177,6 +187,30 @@ class Database:
             cur.execute("""SELECT pi.*, i.name, i.type, i.stats FROM player_inventory pi
                 JOIN items i ON pi.item_id = i.id 
                 WHERE pi.vk_id = %s AND pi.is_equipped = TRUE""", (vk_id,))
+            return cur.fetchall()
+
+    # === Работа с изображениями ===
+
+    def get_media(self, type_: str, object_id: str) -> dict | None:
+        """Получить изображение для локации или NPC"""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM media WHERE type=%s AND object_id=%s", (type_, object_id))
+            return cur.fetchone()
+
+    def set_media(self, type_: str, object_id: str, photo_id: str, image_data: bytes = None) -> bool:
+        """Сохранить или обновить изображение для локации или NPC"""
+        with self.conn.cursor() as cur:
+            cur.execute("""INSERT INTO media (type, object_id, photo_id, image_data)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (type, object_id) 
+                DO UPDATE SET photo_id = EXCLUDED.photo_id, image_data = EXCLUDED.image_data""",
+                (type_, object_id, photo_id, psycopg2.Binary(image_data) if image_data else None))
+            return True
+
+    def get_all_media(self) -> list:
+        """Получить все изображения"""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT type, object_id, photo_id FROM media")
             return cur.fetchall()
 
 

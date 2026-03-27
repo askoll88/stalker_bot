@@ -173,7 +173,7 @@ def create_checkpoint_shop_keyboard() -> str:
     return create_keyboard(buttons)
 
 
-def create_location_keyboard(current_location: str, shelter_unlocked: bool = False) -> str:
+def create_location_keyboard(current_location: str, shelter_unlocked: bool = False, old_man_met: bool = False) -> str:
     """Создать клавиатуру перемещения по локациям"""
     available_moves = get_available_moves(current_location, shelter_unlocked)
 
@@ -185,8 +185,8 @@ def create_location_keyboard(current_location: str, shelter_unlocked: bool = Fal
 
     buttons = []
 
-    # Для города добавляем кнопку NPC Старик
-    if current_location == "city":
+    # Для города добавляем кнопку NPC Старик (только если игрок ещё не получал стартовый набор)
+    if current_location == "city" and not old_man_met:
         buttons.append([{
             "action": {
                 "type": "text",
@@ -254,6 +254,19 @@ def create_main_keyboard() -> str:
         [
             {
                 "action": {"type": "text", "label": "❓ Помощь", "payload": json.dumps({"cmd": "помощь"})},
+                "color": "secondary"
+            }
+        ]
+    ]
+    return create_keyboard(buttons)
+
+
+def create_inventory_keyboard() -> str:
+    """Клавиатура возврата из инвентаря"""
+    buttons = [
+        [
+            {
+                "action": {"type": "text", "label": "🔙 Назад", "payload": json.dumps({"cmd": "вернуть_локацию"})},
                 "color": "secondary"
             }
         ]
